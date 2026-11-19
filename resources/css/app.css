@@ -1,0 +1,430 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+.recording-dashboard,
+.receipt-workspace,
+.gu-issue-page,
+.gu-night-shift,
+.gu-stock {
+    max-width: 100%;
+    min-width: 0;
+    color: var(--text-primary, #1f2523);
+}
+
+.recording-dashboard .recording-dashboard-heading,
+.receipt-workspace .receipt-page-heading,
+.gu-issue-page .gu-issue-page-header {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--surface-border, #e2dfd9);
+}
+
+.recording-dashboard .recording-dashboard-heading h1,
+.receipt-workspace .receipt-page-heading h1,
+.gu-issue-page .gu-issue-page-header h1,
+.gu-night-shift .page-header .page-title,
+.gu-stock .page-header .page-title {
+    color: var(--text-primary, #1f2523);
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1.2;
+}
+
+.recording-dashboard .recording-summary-card,
+.recording-dashboard .recording-panel,
+.receipt-workspace .receipt-card,
+.gu-issue-page .gu-issue-card,
+.gu-night-shift .card,
+.gu-stock .card {
+    border-color: var(--surface-border, #e2dfd9);
+    border-radius: var(--radius-lg, 12px);
+    background: var(--surface-card, #fff);
+    box-shadow: 0 1px 3px rgba(31, 37, 35, .045);
+}
+
+.recording-dashboard .recording-summary-card {
+    border-top: 3px solid var(--brand-primary, #145c54);
+    min-height: 100px;
+    padding: 12px 14px;
+}
+
+.recording-dashboard .recording-panel-heading,
+.receipt-workspace .receipt-card-heading,
+.receipt-workspace .receipt-direct-card-heading,
+.receipt-workspace .receipt-direct-items-heading,
+.gu-issue-page .gu-issue-card-heading {
+    border-color: var(--surface-border, #e2dfd9);
+    border-bottom: 1px solid var(--surface-border, #e2dfd9);
+    padding-bottom: 10px;
+}
+
+.recording-dashboard .recording-summary-heading,
+.recording-dashboard .recording-summary-note,
+.recording-dashboard .recording-session-user,
+.recording-dashboard .recording-panel p,
+.recording-dashboard .recording-dashboard-footnote,
+.recording-dashboard .recording-demo-tag,
+.receipt-workspace .receipt-picker-desc,
+.receipt-workspace .receipt-picker-status-time,
+.receipt-workspace .receipt-store-explainer {
+    font-size: .75rem;
+    line-height: 1.5;
+}
+
+.recording-dashboard .recording-summary-heading,
+.recording-dashboard .recording-summary-note,
+.recording-dashboard .recording-session-user,
+.recording-dashboard .recording-panel p,
+.recording-dashboard .recording-dashboard-footnote {
+    color: var(--text-muted, #5b6b79);
+}
+
+.recording-dashboard .recording-summary-number,
+.recording-dashboard .recording-panel-heading h2,
+.receipt-workspace .receipt-card-heading h2,
+.gu-issue-page .gu-issue-card-heading h2 {
+    color: var(--text-primary, #1f2523);
+}
+
+.recording-dashboard .recording-shortcuts a {
+    min-height: 44px;
+    border-color: var(--surface-border, #e2dfd9);
+    border-radius: var(--radius, 8px);
+    color: var(--brand-primary, #145c54);
+}
+
+.recording-dashboard .recording-shortcuts a:hover {
+    border-color: var(--brand-primary, #145c54);
+    background: #f0f6f3;
+    color: var(--brand-primary-d, #0f4740);
+}
+
+.receipt-workspace .receipt-primary-action,
+.gu-issue-page .gu-issue-primary-button {
+    border-color: var(--brand-primary, #145c54);
+    background: var(--brand-primary, #145c54);
+    color: #fff;
+}
+
+.receipt-workspace .receipt-primary-action:hover,
+.gu-issue-page .gu-issue-primary-button:hover {
+    border-color: var(--brand-primary-d, #0f4740);
+    background: var(--brand-primary-d, #0f4740);
+    color: #fff;
+}
+
+.recording-dashboard .recording-inline-icon,
+.receipt-workspace .recording-inline-icon,
+.gu-issue-page .recording-inline-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    vertical-align: middle;
+}
+
+.recording-dashboard .recording-summary-icon,
+.recording-dashboard .recording-panel-symbol,
+.recording-dashboard .recording-incoming-icon {
+    display: inline-grid;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    place-items: center;
+    border: 1px solid var(--surface-border, #e2dfd9);
+    border-radius: var(--radius, 8px);
+    background: var(--surface-base, #f7f6f3);
+    color: var(--brand-primary, #145c54);
+}
+
+.recording-dashboard .recording-summary-icon svg,
+.recording-dashboard .recording-panel-symbol svg,
+.recording-dashboard .recording-incoming-icon svg,
+.receipt-workspace .receipt-picker-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.receipt-workspace .receipt-picker-icon {
+    border: 1px solid var(--surface-border, #e2dfd9);
+    border-radius: var(--radius, 8px);
+    background: var(--surface-base, #f7f6f3);
+    color: var(--brand-primary, #145c54);
+}
+
+.recording-dashboard a:focus-visible,
+.recording-dashboard button:focus-visible,
+.receipt-workspace a:focus-visible,
+.receipt-workspace button:focus-visible,
+.receipt-workspace input:focus-visible,
+.receipt-workspace select:focus-visible,
+.receipt-workspace textarea:focus-visible,
+.gu-issue-page a:focus-visible,
+.gu-issue-page button:focus-visible,
+.gu-issue-page input:focus-visible,
+.gu-issue-page select:focus-visible,
+.gu-issue-page textarea:focus-visible,
+.gu-night-shift a:focus-visible,
+.gu-night-shift button:focus-visible,
+.gu-night-shift input:focus-visible,
+.gu-night-shift select:focus-visible,
+.gu-night-shift textarea:focus-visible,
+.gu-stock a:focus-visible,
+.gu-stock button:focus-visible,
+.gu-stock input:focus-visible,
+.gu-stock select:focus-visible {
+    outline: 2px solid var(--brand-primary, #145c54);
+    outline-offset: 2px;
+}
+
+.receipt-workspace .receipt-table-wrap,
+.receipt-workspace .receipt-request-table-wrap,
+.gu-issue-page .gu-issue-table-wrap {
+    max-width: 100%;
+    min-width: 0;
+}
+
+@media (max-width: 820px) {
+    .receipt-workspace .receipt-page-heading,
+    .gu-issue-page .gu-issue-page-header {
+        align-items: flex-start;
+    }
+
+    .gu-issue-page .gu-issue-header-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 600px) {
+    .receipt-workspace .receipt-page-heading,
+    .gu-issue-page .gu-issue-page-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .receipt-workspace .receipt-tabs button,
+    .gu-issue-page .gu-issue-tabs button {
+        min-height: 44px;
+    }
+
+    .recording-dashboard .recording-primary-action,
+    .recording-dashboard .recording-incoming-action,
+    .receipt-workspace .receipt-primary-action,
+    .receipt-workspace .receipt-secondary-button,
+    .receipt-workspace .receipt-remove-row,
+    .gu-issue-page .gu-issue-primary-button,
+    .gu-issue-page .gu-issue-outline-button,
+    .gu-issue-page .gu-issue-cancel-button,
+    .gu-issue-page .gu-issue-remove-button,
+    .gu-issue-page .gu-issue-notice > button:last-child,
+    .gu-issue-page .gu-issue-saved-flash-close {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .recording-dashboard *,
+    .receipt-workspace *,
+    .gu-issue-page *,
+    .gu-night-shift *,
+    .gu-stock * {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+.recording-dashboard .recording-dashboard-warehouse {
+    display: inline-flex;
+    max-width: 100%;
+    min-height: 36px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--surface-border, #e2dfd9);
+    border-radius: var(--radius, 8px);
+    background: var(--surface-card, #fff);
+    color: var(--text-muted, #5b6b79);
+    font-size: .75rem;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.recording-dashboard .recording-dashboard-warehouse svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    fill: none;
+    stroke: var(--brand-primary, #145c54);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.recording-dashboard .recording-dashboard-alert {
+    display: grid;
+    gap: 3px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid #e8d5b7;
+    border-radius: var(--radius, 8px);
+    background: #fff8ee;
+    color: #704616;
+    font-size: .875rem;
+    line-height: 1.5;
+}
+
+.recording-dashboard .recording-dashboard-alert strong {
+    color: #624010;
+}
+
+.recording-dashboard .recording-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.recording-dashboard .recording-menu-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--surface-border, #e2dfd9);
+    border-top: 3px solid var(--brand-primary, #145c54);
+    border-radius: var(--radius-lg, 12px);
+    background: var(--surface-card, #fff);
+    box-shadow: 0 1px 3px rgba(31, 37, 35, .045);
+}
+
+.recording-dashboard .recording-menu-card-heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+}
+
+.recording-dashboard .recording-menu-card-icon {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    border: 1px solid var(--surface-border, #e2dfd9);
+    border-radius: var(--radius, 8px);
+    background: var(--surface-base, #f7f6f3);
+    color: var(--brand-primary, #145c54);
+}
+
+.recording-dashboard .recording-menu-card-icon svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.recording-dashboard .recording-menu-card-heading > div {
+    min-width: 0;
+}
+
+.recording-dashboard .recording-menu-eyebrow {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--text-muted, #5b6b79);
+    font-size: .75rem;
+    font-weight: 750;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.recording-dashboard .recording-menu-card h2 {
+    margin: 0;
+    color: var(--text-primary, #1f2523);
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.recording-dashboard .recording-menu-card > p {
+    flex: 1;
+    margin: 0;
+    color: var(--text-muted, #5b6b79);
+    font-size: .875rem;
+    line-height: 1.5;
+}
+
+.recording-dashboard .recording-menu-action {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid var(--brand-primary, #145c54);
+    border-radius: var(--radius, 8px);
+    background: var(--brand-primary, #145c54);
+    color: #fff;
+    font-size: .8125rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-decoration: none;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+.recording-dashboard .recording-menu-action:hover {
+    border-color: var(--brand-primary-d, #0f4740);
+    background: var(--brand-primary-d, #0f4740);
+}
+
+.recording-dashboard .recording-menu-action svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+@media (max-width: 1000px) {
+    .recording-dashboard .recording-menu-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .recording-dashboard .recording-menu-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .recording-dashboard .recording-menu-card {
+        padding: 16px;
+    }
+}
+

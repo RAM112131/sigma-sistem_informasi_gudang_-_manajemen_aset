@@ -1,0 +1,22 @@
+{
+    "agents": [
+        "antigravity"
+    ],
+    "cloud": true,
+    "mcp": true,
+    "nightwatch": false,
+    "sail": false,
+    "skills": [
+        "infer-conventions",
+        "deploying-to-cloud",
+        "ai-sdk-development",
+        "laravel-best-practices",
+        "testing-best-practices",
+        "tailwindcss-development",
+        "code-slop",
+        "generate-ui-design",
+        "laravel-pro",
+        "ui-ux-pro-max",
+        "wp-performance-review"
+    ]
+}

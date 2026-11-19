@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1120" viewBox="0 0 1400 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Flowchart Recording Gudang Umum SIGMA</title>
+  <desc id="desc">Alur menu Recording GU untuk penerimaan supplier, penerimaan transfer, pengeluaran BPB, pengembalian, dan stok.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#334155"/></marker>
+    <style>
+      text{font-family:Arial,sans-serif;fill:#172033}.title{font-size:30px;font-weight:700}.sub{font-size:16px;fill:#475569}.node{stroke:#334155;stroke-width:2.5}.proc{fill:#eaf1ff}.io{fill:#e8f7f3}.decision{fill:#fff4d6}.terminal{fill:#e5f4df}.body{font-size:18px}.label{font-size:16px;font-weight:700;fill:#334155}.line{fill:none;stroke:#334155;stroke-width:2.5;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1400" height="1120" fill="#fff"/>
+  <text x="700" y="45" text-anchor="middle" class="title">Recording Gudang Umum — Alur Menu Operasional</text>
+  <text x="700" y="73" text-anchor="middle" class="sub">Pencatatan kejadian fisik dan serah-terima data untuk pemeriksaan Admin GU</text>
+  <ellipse cx="700" cy="120" rx="100" ry="34" class="node terminal"/><text x="700" y="127" text-anchor="middle" class="body">Mulai / Login</text>
+  <path d="M700 154 V185" class="line"/>
+  <polygon points="550,195 850,195 830,255 530,255" class="node io"/><text x="680" y="232" text-anchor="middle" class="body">Menu: Dashboard Tugas Harian</text>
+  <path d="M680 255 V285" class="line"/>
+  <polygon points="680,285 820,340 680,395 540,340" class="node decision"/><text x="680" y="347" text-anchor="middle" class="body">Pilih menu</text>
+  <path d="M540 340 H235 V440" class="line"/><path d="M650 390 L680 440" class="line"/><path d="M820 340 H1120 V440" class="line"/>
+  <text x="155" y="420" class="label">Penerimaan Fisik Barang</text><text x="610" y="420" class="label">Pengeluaran &amp; Pengembalian BPB</text><text x="1060" y="420" class="label">Stok Barang Fisik</text>
+  <polygon points="235,440 350,490 235,540 120,490" class="node decision"/><text x="235" y="497" text-anchor="middle" class="body">Asal barang?</text>
+  <path d="M120 490 H95 V570" class="line"/><path d="M350 490 H385 V570" class="line"/>
+  <text x="60" y="555" class="label">Supplier</text><text x="370" y="555" class="label">Transfer Store</text>
+  <rect x="25" y="570" width="220" height="105" rx="8" class="node proc"/><text x="135" y="606" text-anchor="middle" class="body"><tspan x="135">Isi supplier, dokumen,</tspan><tspan x="135" dy="24">barang, qty, kondisi</tspan></text>
+  <rect x="275" y="570" width="220" height="105" rx="8" class="node proc"/><text x="385" y="606" text-anchor="middle" class="body"><tspan x="385">Cocokkan barang fisik</tspan><tspan x="385" dy="24">dengan dokumen transfer</tspan></text>
+  <path d="M135 675 V715" class="line"/><path d="M385 675 V715" class="line"/>
+  <polygon points="135,715 245,760 135,805 25,760" class="node decision"/><text x="135" y="767" text-anchor="middle" class="body">Data valid?</text>
+  <polygon points="385,715 495,760 385,805 275,760" class="node decision"/><text x="385" y="767" text-anchor="middle" class="body">Cocok?</text>
+  <path d="M25 760 H10 V625 H25" class="line"/><text x="10" y="830" class="label">Tidak: koreksi</text>
+  <path d="M245 760 H260 V850" class="line"/><text x="250" y="745" class="label">Ya</text>
+  <path d="M275 760 H260 V850" class="line"/><text x="270" y="745" class="label">Tidak: tindak lanjuti</text>
+  <path d="M495 760 H510 V625 H495" class="line"/>
+  <rect x="145" y="850" width="230" height="85" rx="8" class="node proc"/><text x="260" y="885" text-anchor="middle" class="body"><tspan x="260">Simpan penerimaan</tspan><tspan x="260" dy="24">/ konfirmasi transfer</tspan></text>
+  <path d="M260 935 V970" class="line"/>
+  <polygon points="145,970 395,970 375,1035 125,1035" class="node io"/><text x="260" y="1010" text-anchor="middle" class="body">Stok unit / transfer diperbarui</text>
+  <path d="M680 440 V485" class="line"/>
+  <polygon points="680,485 795,535 680,585 565,535" class="node decision"/><text x="680" y="542" text-anchor="middle" class="body">Jenis transaksi?</text>
+  <path d="M565 535 H600 V610" class="line"/><path d="M795 535 H870 V610" class="line"/>
+  <text x="550" y="595" class="label">Barang keluar</text><text x="810" y="595" class="label">Pengembalian</text>
+  <rect x="500" y="610" width="240" height="105" rx="8" class="node proc"/><text x="620" y="646" text-anchor="middle" class="body"><tspan x="620">Isi peminta, barang,</tspan><tspan x="620" dy="24">jumlah, dan pemakai</tspan></text>
+  <rect x="790" y="610" width="240" height="105" rx="8" class="node proc"/><text x="910" y="646" text-anchor="middle" class="body"><tspan x="910">Pilih pinjaman/sisa;</tspan><tspan x="910" dy="24">catat jumlah kembali</tspan></text>
+  <path d="M620 715 V755" class="line"/><path d="M910 715 V755" class="line"/>
+  <rect x="500" y="755" width="240" height="85" rx="8" class="node proc"/><text x="620" y="790" text-anchor="middle" class="body"><tspan x="620">Simpan BPB</tspan><tspan x="620" dy="24">menunggu verifikasi</tspan></text>
+  <rect x="790" y="755" width="240" height="85" rx="8" class="node proc"/><text x="910" y="802" text-anchor="middle" class="body">Simpan pengembalian</text>
+  <path d="M620 840 V880" class="line"/><path d="M910 840 V880" class="line"/>
+  <polygon points="620,880 740,930 620,980 500,930" class="node decision"/><text x="620" y="937" text-anchor="middle" class="body">Keputusan Admin GU</text>
+  <path d="M500 930 H465 V1020" class="line"/><path d="M740 930 H770 V1020" class="line"/>
+  <text x="430" y="1005" class="label">Ditolak</text><text x="750" y="1005" class="label">Disahkan</text>
+  <polygon points="365,1020 565,1020 545,1085 345,1085" class="node io"/><text x="455" y="1060" text-anchor="middle" class="body">Tinjau alasan</text>
+  <polygon points="670,1020 870,1020 850,1085 650,1085" class="node io"/><text x="760" y="1060" text-anchor="middle" class="body">Stok diperbarui</text>
+  <rect x="1080" y="440" width="240" height="100" rx="8" class="node proc"/><text x="1200" y="478" text-anchor="middle" class="body"><tspan x="1200">Lihat saldo stok</tspan><tspan x="1200" dy="24">dan kartu stok</tspan></text>
+  <path d="M1200 540 V585" class="line"/>
+  <polygon points="1090,585 1310,585 1290,655 1070,655" class="node io"/><text x="1190" y="627" text-anchor="middle" class="body">Saldo operasional terkini</text>
+</svg>

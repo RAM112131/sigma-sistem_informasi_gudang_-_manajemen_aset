@@ -1,0 +1,357 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\UnitBisnis;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\UnitBisnis\RecordingGudangUmum\AnalyzeUnitStockImportRequest;
+use App\Http\Requests\UnitBisnis\RecordingGudangUmum\ProcessUnitStockImportRequest;
+use App\Models\Barang;
+use App\Models\Gudang;
+use App\Models\KategoriBarang;
+use App\Models\Satuan;
+use App\Models\User;
+use App\Services\Store\StokService;
+use App\Services\UnitBisnis\UnitGudangService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class StokController extends Controller
+{
+    public function __construct(
+        protected readonly StokService $stokService,
+        protected readonly UnitGudangService $unitGudangService,
+    ) {}
+
+    public function index(Request $request): View
+    {
+        $activeGudang = $this->resolveUnitGudang($request);
+        $user = $request->user();
+
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'q' => ['nullable', 'string', 'max:255'],
+            'kategori_id' => ['nullable', 'integer'],
+            'status' => ['nullable', 'in:aman,warning,kritis,critical'],
+        ]);
+        $search = trim($filters['search'] ?? '');
+        $searchInputKey = 'search';
+        if ($search === '') {
+            $search = trim($filters['q'] ?? '');
+            $searchInputKey = 'q';
+        }
+        $kategoriId = $filters['kategori_id'] ?? null;
+        $statusFilter = $filters['status'] ?? null;
+        $activeTab = $request->query('tab', 'stok_saat_ini');
+
+        $listingData = $this->stokService->getListingData($activeGudang, [
+            'search' => $filters['search'] ?? null,
+            'q' => $filters['q'] ?? null,
+            'search_key' => $searchInputKey,
+            'kategori_id' => is_scalar($kategoriId) ? $kategoriId : null,
+            'status' => is_string($statusFilter) ? $statusFilter : null,
+        ]);
+
+        $gudangUnits = $user instanceof User
+            ? $this->unitGudangService->getAssignedGudangUnits($user)
+            : collect();
+
+        return view('unit-bisnis.stok.index', [
+            ...$listingData,
+            'search' => $search,
+            'kategoriId' => $kategoriId,
+            'statusFilter' => $statusFilter,
+            'activeTab' => $activeTab,
+            'activeGudang' => $activeGudang,
+            'gudangUnits' => $gudangUnits,
+            'stockSummary' => $this->stokService->getStockSummary($activeGudang),
+            'stockEditSatuanList' => Satuan::query()
+                ->forGudang((int) $activeGudang->id)
+                ->where('is_aktif', true)
+                ->orderBy('nama')
+                ->get(['id', 'nama']),
+        ]);
+    }
+
+    public function edit(Request $request, Barang $barang): View
+    {
+        $activeGudang = $this->resolveUnitGudang($request);
+        $this->authorizeStockMutation(
+            $request,
+            $barang,
+            $activeGudang,
+            'stokunitbisnis.edit',
+            'stokunitbisnis.update',
+            ['Super Admin', 'super_admin', 'Admin Gudang Umum', 'admin_gudang_umum', 'Recording Gudang Umum', 'recording_gudang_umum'],
+        );
+
+        return view('unit-bisnis.stok.edit', [
+            'activeGudang' => $activeGudang,
+            'barang' => $barang->load(['kategori', 'satuan']),
+            'kategoriList' => KategoriBarang::query()
+                ->forGudang((int) $activeGudang->id)
+                ->where('is_aktif', true)
+                ->orderBy('nama')
+                ->get(['id', 'nama']),
+            'satuanList' => Satuan::query()
+                ->forGudang((int) $activeGudang->id)
+                ->where('is_aktif', true)
+                ->orderBy('nama')
+                ->get(['id', 'nama']),
+        ]);
+    }
+
+    public function update(Request $request, Barang $barang): RedirectResponse
+    {
+        $activeGudang = $this->resolveUnitGudang($request);
+        $this->authorizeStockMutation(
+            $request,
+            $barang,
+            $activeGudang,
+            'stokunitbisnis.edit',
+            'stokunitbisnis.update',
+            ['Super Admin', 'super_admin', 'Admin Gudang Umum', 'admin_gudang_umum', 'Recording Gudang Umum', 'recording_gudang_umum'],
+        );
+
+        $request->merge([
+            'kode' => strtoupper(trim((string) $request->input('kode'))),
+            'nama' => trim((string) $request->input('nama')),
+        ]);
+
+        $validated = $request->validate([
+            'kode' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('barangs', 'kode')
+                    ->where(fn ($query) => $query->where('gudang_id', $activeGudang->id))
+                    ->ignore($barang->id),
+            ],
+            'nama' => ['required', 'string', 'max:255'],
+            'kategori_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('kategori_barangs', 'id')->where(
+                    fn ($query) => $query->where('is_aktif', true)
+                        ->whereNull('deleted_at')
+                        ->where(fn ($warehouseQuery) => $warehouseQuery
+                            ->whereNull('gudang_id')
+                            ->orWhere('gudang_id', $activeGudang->id))
+                ),
+            ],
+            'satuan_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('satuans', 'id')->where(
+                    fn ($query) => $query->where('is_aktif', true)
+                        ->whereNull('deleted_at')
+                        ->where(fn ($warehouseQuery) => $warehouseQuery
+                            ->whereNull('gudang_id')
+                            ->orWhere('gudang_id', $activeGudang->id))
+                ),
+            ],
+            'minimum_stok' => ['required', 'integer', 'min:0'],
+            'harga_satuan' => ['nullable', 'numeric', 'min:0'],
+            'deskripsi' => ['nullable', 'string'],
+        ]);
+
+        $this->stokService->updateUnitBarang($barang, $validated);
+
+        return redirect()
+            ->route('unit-bisnis.stok.index', ['tab' => 'stok_saat_ini', 'gudang_id' => $activeGudang->id])
+            ->with('success', "Data barang {$barang->nama} berhasil diperbarui. Saldo fisik tidak berubah.");
+    }
+
+    public function destroy(Request $request, Barang $barang): RedirectResponse
+    {
+        $activeGudang = $this->resolveUnitGudang($request);
+        $this->authorizeStockMutation(
+            $request,
+            $barang,
+            $activeGudang,
+            'stokunitbisnis.delete',
+            null,
+            ['Super Admin', 'super_admin', 'Admin Gudang Umum', 'admin_gudang_umum'],
+        );
+
+        $this->stokService->deleteUnitBarang($barang, (int) $activeGudang->id);
+
+        return redirect()
+            ->route('unit-bisnis.stok.index', ['tab' => 'stok_saat_ini', 'gudang_id' => $activeGudang->id])
+            ->with('success', "{$barang->nama} berhasil dihapus dari daftar stok. Riwayat transaksi tetap disimpan.");
+    }
+
+    public function downloadExport(Request $request): StreamedResponse
+    {
+        $activeGudang = $this->resolveUnitGudang($request);
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'q' => ['nullable', 'string', 'max:255'],
+            'kategori_id' => ['nullable', 'integer'],
+            'status' => ['nullable', 'in:aman,warning,kritis,critical'],
+        ]);
+        $searchInputKey = trim($filters['search'] ?? '') === '' ? 'q' : 'search';
+        $rows = $this->stokService->getExportRows($activeGudang, [
+            ...$filters,
+            'search_key' => $searchInputKey,
+        ]);
+
+        return response()->streamDownload(static function () use ($rows): void {
+            $handle = fopen('php://output', 'wb');
+            if ($handle === false) {
+                throw new \RuntimeException('Tidak dapat membuka output ekspor stok.');
+            }
+
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['Kode Barang', 'Nama Barang', 'Kategori', 'Satuan', 'Saldo Fisik', 'Stok Minimum', 'HPP Saat Ini', 'Status']);
+
+            foreach ($rows as $item) {
+                $barang = $item['model'];
+                $values = [
+                    $barang->kode,
+                    $barang->nama,
+                    $barang->kategori?->nama ?? 'Umum',
+                    $barang->satuan?->nama ?? '-',
+                    $item['stok_aktual'],
+                    $barang->minimum_stok,
+                    $barang->harga_satuan,
+                    $item['status_text'],
+                ];
+
+                fputcsv($handle, array_map(
+                    static fn (mixed $value): string|int|float|null => self::escapeCsvCell($value),
+                    $values
+                ));
+            }
+
+            fclose($handle);
+        }, 'stok-gudang-'.$activeGudang->id.'-'.now()->format('Ymd').'.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * Download CSV template for Import Data Awal Gudang Unit.
+     */
+    public function downloadImportTemplate(): StreamedResponse
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="template_import_stok_awal_unit.csv"',
+        ];
+
+        return response()->stream(function () {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'kondisi', 'catatan']);
+            fputcsv($handle, ['SKH-001', 'Ayam Broiler Karkas Frozen', 'Karkas Ayam & Parting Sukahati', 'Ekor', '120', 'baik', 'Stok fisik opname unit awal']);
+            fputcsv($handle, ['SKH-002', 'Daging Fillet Dada Ayam', 'Karkas Ayam & Parting Sukahati', 'Kilogram', '45', 'baik', 'Stok fisik opname unit awal']);
+            fputcsv($handle, ['KMS-001', 'Plastik Vacuum Roll 20x30', 'Kemasan', 'Roll', '30', 'baik', 'Stok fisik opname unit awal']);
+            fclose($handle);
+        }, 200, $headers);
+    }
+
+    /**
+     * Analyze uploaded rows before inserting.
+     */
+    public function analyzeImport(AnalyzeUnitStockImportRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $activeGudang = $this->resolveUnitGudang($request);
+
+        return response()->json(
+            $this->stokService->analyzeImportRows(
+                $validated['rows'],
+                (int) $activeGudang->id,
+            )
+        );
+    }
+
+    /**
+     * Import validated rows into database.
+     */
+    public function processImport(ProcessUnitStockImportRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $activeGudang = $this->resolveUnitGudang($request);
+
+        $result = $this->stokService->importRowsInChunks(
+            $validated['rows'],
+            (int) $activeGudang->id,
+            (int) Auth::id(),
+            $validated['tanggal_acuan'],
+            $validated['catatan_umum'] ?? null,
+        );
+
+        return response()->json([
+            'success' => true,
+            'queued' => false,
+            ...$result,
+        ]);
+    }
+
+    /**
+     * Display Kartu Stok mutasi chronological for this item.
+     */
+    public function kartuStok(Request $request, Barang $barang): JsonResponse
+    {
+        $activeGudang = $this->resolveUnitGudang($request);
+
+        return response()->json($this->stokService->getStockCardData($barang, $activeGudang));
+    }
+
+    protected function resolveUnitGudang(Request $request): Gudang
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
+        $activeGudang = $this->unitGudangService->resolveActiveGudang(
+            $user,
+            $request->query('gudang_id', session('active_gudang_id')),
+            ['unit_bisnis', 'gudang_sukahati', 'gudang_umum'],
+        );
+
+        abort_unless($activeGudang !== null, 403, 'Anda belum ditugaskan ke Gudang Unit aktif.');
+        session(['active_gudang_id' => $activeGudang->getKey()]);
+
+        return $activeGudang;
+    }
+
+    /**
+     * @param  list<string>  $roles
+     */
+    private function authorizeStockMutation(
+        Request $request,
+        Barang $barang,
+        Gudang $activeGudang,
+        string $permission,
+        ?string $alternativePermission,
+        array $roles,
+    ): void {
+        $user = $request->user();
+        $authorized = $user instanceof User
+            && ($user->hasAnyRole($roles)
+                || $user->can($permission)
+                || ($alternativePermission !== null && $user->can($alternativePermission)));
+
+        abort_unless($authorized, 403);
+        abort_unless(
+            (int) $barang->gudang_id === (int) $activeGudang->id && $barang->is_aktif,
+            404,
+        );
+    }
+
+    private static function escapeCsvCell(mixed $value): string|int|float|null
+    {
+        if (! is_string($value) || preg_match('/^\s*[=+\-@]/u', $value) !== 1) {
+            return $value;
+        }
+
+        return "'".$value;
+    }
+}

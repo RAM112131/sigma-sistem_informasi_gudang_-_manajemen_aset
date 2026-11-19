@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      { "type": "command", "command": "D:/laragon/bin/nodejs/node-v22/node.exe C:/Users/reka114141/AppData/Roaming/npm/node_modules/context-mode/cli.bundle.mjs hook vscode-copilot pretooluse" }
+    ],
+    "PostToolUse": [
+      { "type": "command", "command": "D:/laragon/bin/nodejs/node-v22/node.exe C:/Users/reka114141/AppData/Roaming/npm/node_modules/context-mode/cli.bundle.mjs hook vscode-copilot posttooluse" }
+    ],
+    "SessionStart": [
+      { "type": "command", "command": "D:/laragon/bin/nodejs/node-v22/node.exe C:/Users/reka114141/AppData/Roaming/npm/node_modules/context-mode/cli.bundle.mjs hook vscode-copilot sessionstart" }
+    ]
+  }
+}

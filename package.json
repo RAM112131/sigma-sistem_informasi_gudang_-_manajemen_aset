@@ -1,0 +1,26 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "format:blade": "blade-formatter \"resources/views/**/*.blade.php\" --write --end-of-line LF --indent-size 4 --wrap-line-length 120",
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.0.0",
+        "blade-formatter": "^1.44.6",
+        "concurrently": "^10.0.3",
+        "laravel-vite-plugin": "^3.1",
+        "tailwindcss": "^4.0.0",
+        "vite": "^8.0.0"
+    },
+    "optionalDependencies": {
+        "@laravel/multiplex": "^0.4.1"
+    },
+    "dependencies": {
+        "@hotwired/turbo": "^8.0.23",
+        "alpinejs": "^3.17.3",
+        "chart.js": "^4.6.1"
+    }
+}

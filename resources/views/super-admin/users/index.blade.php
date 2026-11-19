@@ -1,0 +1,1015 @@
+@extends('layouts.app')
+
+@section('title', 'Manajemen Pengguna — ' . config('app.name', 'SIGMA'))
+
+@section('content')
+    <div class="super-dashboard">
+        {{-- Header Halaman --}}
+        <header class="super-users-header">
+            <div>
+                <nav class="super-breadcrumb" aria-label="Breadcrumb">
+                    <a href="{{ route('admin.dashboard') }}">Super Admin</a>
+                    <span aria-hidden="true">›</span>
+                    <span>Manajemen Pengguna</span>
+                </nav>
+                <h1 class="super-page-title">Manajemen Pengguna</h1>
+                <p class="super-page-subtitle">Kelola akun pengguna, role otoritas Spatie, status aktif, dan penugasan akses
+                    gudang.</p>
+            </div>
+            <a class="super-header-btn" href="{{ route('admin.users.create') }}">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M12 5v14m-7-7h14" />
+                </svg>
+                <span>Tambah Pengguna</span>
+            </a>
+        </header>
+
+        {{-- 4 KPI Stat Cards (Identik dengan Dashboard) --}}
+        <section class="super-dashboard-kpis" aria-label="Ringkasan akun pengguna">
+            <div class="super-kpi super-kpi-users">
+                <span class="super-kpi-heading">TOTAL PENGGUNA</span>
+                <span class="super-kpi-value">{{ number_format($stats['total_users']) }}<small> Akun</small></span>
+                <span class="super-kpi-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="10" cy="7" r="4" />
+                        <path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                </span>
+                <span class="super-kpi-tag tag-green">{{ number_format($stats['active_users']) }} AKTIF,
+                    {{ number_format($stats['inactive_users']) }} NONAKTIF</span>
+            </div>
+
+            <div class="super-kpi super-kpi-roles">
+                <span class="super-kpi-heading">MULTI-ROLE SPATIE</span>
+                <span class="super-kpi-value">{{ number_format($stats['multi_role_users']) }}<small> Akun</small></span>
+                <span class="super-kpi-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="m9 12 2 2 4-4" />
+                    </svg>
+                </span>
+                <span class="super-kpi-tag tag-navy">LEBIH DARI 1 PERAN</span>
+            </div>
+
+            <div class="super-kpi super-kpi-warehouses">
+                <span class="super-kpi-heading">GUDANG TERBANYAK</span>
+                <span
+                    class="super-kpi-value super-kpi-name-truncate">{{ $stats['top_gudang']?->nama ?? 'Belum ada gudang' }}</span>
+                <span class="super-kpi-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <path d="M9 22V12h6v10" />
+                    </svg>
+                </span>
+                <span class="super-kpi-tag tag-teal">{{ number_format($stats['top_gudang']?->users_count ?? 0) }} PENGGUNA
+                    DITUGASKAN</span>
+            </div>
+
+            <div class="super-kpi super-kpi-activity">
+                <span class="super-kpi-heading">SESI AKTIF (ONLINE)</span>
+                <span
+                    class="super-kpi-value">{{ $stats['active_sessions'] === null ? '—' : number_format($stats['active_sessions']) }}<small>
+                        Sesi</small></span>
+                <span class="super-kpi-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M4 12a8 8 0 1 0 2.34-5.66L4 8.5" />
+                        <path d="M4 4v4.5h4.5M12 8v4l3 2" />
+                    </svg>
+                </span>
+                <span
+                    class="super-kpi-tag tag-green">{{ $stats['active_sessions'] === null ? 'DRIVER SESI STATIK' : 'SESI AKTIF DATABASE' }}</span>
+            </div>
+        </section>
+
+        {{-- Tabel Pengguna Utama (Super Panel) --}}
+        <article class="super-panel">
+            {{-- Filter Toolbar --}}
+            <form action="{{ route('admin.users.index') }}" method="GET" class="super-user-filters">
+                <label class="super-search">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-4-4" />
+                    </svg>
+                    <span class="sr-only">Cari nama, username, atau semantik pengguna</span>
+                    <input type="search" name="search" value="{{ $filters['search'] ?? '' }}"
+                        placeholder="Cari nama, username, atau semantik...">
+                </label>
+
+                <label class="sr-only" for="users-role-filter">Filter role</label>
+                <select name="role" id="users-role-filter" class="super-filter-select">
+                    <option value="">Semua Role</option>
+                    @foreach ($availableRoles as $role)
+                        <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $role }}</option>
+                    @endforeach
+                </select>
+
+                <label class="sr-only" for="users-gudang-filter">Filter gudang</label>
+                <select name="gudang" id="users-gudang-filter" class="super-filter-select">
+                    <option value="">Semua Gudang</option>
+                    @foreach ($availableGudangs as $gudang)
+                        <option value="{{ $gudang->id }}" @selected((string) ($filters['gudang'] ?? '') === (string) $gudang->id)>
+                            {{ $gudang->nama }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <label class="sr-only" for="users-status-filter">Filter status</label>
+                <select name="status" id="users-status-filter" class="super-filter-select">
+                    <option value="">Semua Status</option>
+                    <option value="active" @selected(($filters['status'] ?? '') === 'active')>Aktif</option>
+                    <option value="inactive" @selected(($filters['status'] ?? '') === 'inactive')>Nonaktif</option>
+                </select>
+
+                <button type="submit" class="super-filter-submit" aria-label="Terapkan filter" title="Terapkan filter">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M20 7v5h-5M4 17v-5h5" />
+                        <path d="M5.5 9a7 7 0 0 1 11.6-2L20 12M4 12l2.9 5a7 7 0 0 0 11.6-2" />
+                    </svg>
+                </button>
+
+                @if (collect($filters)->filter(fn($value): bool => filled($value))->isNotEmpty())
+                    <a href="{{ route('admin.users.index') }}" class="super-filter-reset" title="Reset filter">Reset</a>
+                @endif
+            </form>
+
+            {{-- Tabel Responsif --}}
+            <div class="super-users-table-wrap">
+                <table class="super-users-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">PENGGUNA</th>
+                            <th scope="col">USERNAME</th>
+                            <th scope="col">ROLE OTORITAS</th>
+                            <th scope="col">PENUGASAN GUDANG</th>
+                            <th scope="col">STATUS</th>
+                            <th scope="col">TANGGAL DIBUAT</th>
+                            <th scope="col" style="text-align: right;">AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($users as $user)
+                            @php
+                                $initials = collect(explode(' ', trim($user->name)))
+                                    ->filter()
+                                    ->take(2)
+                                    ->map(fn(string $part): string => mb_strtoupper(mb_substr($part, 0, 1)))
+                                    ->implode('');
+                                if ($initials === '') {
+                                    $initials = mb_strtoupper(mb_substr($user->username, 0, 2));
+                                }
+                            @endphp
+                            <tr>
+                                <td>
+                                    <div class="super-user-cell">
+                                        <span class="super-user-avatar">{{ $initials }}</span>
+                                        <span class="super-user-details">
+                                            <strong>{{ $user->name }}</strong>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="super-username-code">{{ $user->username }}</span>
+                                </td>
+                                <td>
+                                    <div class="super-role-wrap">
+                                        @forelse ($user->roles as $role)
+                                            @php
+                                                $roleClass = match ($role->name) {
+                                                    'Super Admin', 'super_admin' => 'role-super',
+                                                    'Admin Gudang Store', 'admin_gudang_store' => 'role-store',
+                                                    'Admin Gudang Umum', 'admin_gudang_umum' => 'role-admin',
+                                                    'Recording Gudang Umum',
+                                                    'recording_gudang_umum'
+                                                        => 'role-recording',
+                                                    default => 'role-custom',
+                                                };
+                                            @endphp
+                                            <span class="super-role-badge {{ $roleClass }}">{{ $role->name }}</span>
+                                        @empty
+                                            <span class="super-muted">Belum ada role</span>
+                                        @endforelse
+                                    </div>
+                                </td>
+                                <td>
+                                    @if ($user->gudang->isNotEmpty())
+                                        <span class="super-warehouse-chip">{{ $user->gudang->first()->nama }}</span>
+                                        @if ($user->gudang->count() > 1)
+                                            <span class="super-warehouse-more"
+                                                title="{{ $user->gudang->pluck('nama')->join(', ') }}">+{{ $user->gudang->count() - 1 }}</span>
+                                        @endif
+                                    @else
+                                        <span class="super-muted">Belum ditugaskan</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <span
+                                        class="super-status {{ $user->is_aktif ? 'status-active' : 'status-inactive' }}">
+                                        {{ $user->is_aktif ? 'Aktif' : 'Nonaktif' }}
+                                    </span>
+                                </td>
+                                <td class="super-date-cell">
+                                    {{ $user->created_at?->format('d M Y') ?? '—' }}
+                                </td>
+                                <td style="text-align: right;">
+                                    <div class="super-users-actions">
+                                        <a class="super-action-btn btn-edit"
+                                            href="{{ route('admin.users.edit', $user) }}"
+                                            title="Edit {{ $user->name }}" aria-label="Edit {{ $user->name }}">
+                                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                                <path d="m14 5 5 5M4 20l4.5-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.5 16 4 20Z" />
+                                            </svg>
+                                            <span>Edit</span>
+                                        </a>
+                                        <form action="{{ route('admin.users.destroy', $user) }}" method="POST"
+                                            onsubmit="return confirm('Yakin ingin menghapus pengguna ini? Riwayat transaksinya akan tetap tersimpan.');"
+                                            style="display:inline;">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="super-action-btn btn-delete" type="submit"
+                                                title="Hapus {{ $user->name }}" aria-label="Hapus {{ $user->name }}"
+                                                @if ($user->id === auth()->id()) disabled title="Anda tidak dapat menghapus akun Anda sendiri" @endif>
+                                                <svg aria-hidden="true" viewBox="0 0 24 24">
+                                                    <path d="M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" />
+                                                </svg>
+                                                <span>Hapus</span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="super-table-empty">
+                                    <strong>Pengguna tidak ditemukan</strong>
+                                    <p style="margin:4px 0 0; color:var(--text-subtle);">Coba ubah kata kunci pencarian
+                                        atau filter yang dipilih.</p>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Footer Paginasi & Baris --}}
+            <footer class="super-users-pagination">
+                <div class="super-pagination-left">
+                    <span>
+                        Menampilkan {{ $users->firstItem() ?? 0 }}–{{ $users->lastItem() ?? 0 }} dari
+                        {{ number_format($users->total()) }} pengguna
+                    </span>
+                    <form action="{{ route('admin.users.index') }}" method="GET" class="super-page-size-form">
+                        @foreach ($filters as $key => $value)
+                            @if ($key !== 'per_page' && filled($value))
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                            @endif
+                        @endforeach
+                        <label for="users-per-page">Baris:</label>
+                        <select id="users-per-page" name="per_page" onchange="this.form.submit()">
+                            @foreach ([10, 25, 50] as $size)
+                                <option value="{{ $size }}" @selected($perPage === $size)>{{ $size }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
+
+                @if ($users->lastPage() > 1)
+                    @php
+                        $firstPage = max(1, $users->currentPage() - 2);
+                        $lastPage = min($users->lastPage(), $users->currentPage() + 2);
+                    @endphp
+                    <nav class="super-pagination-nav" aria-label="Navigasi halaman pengguna">
+                        @if ($users->onFirstPage())
+                            <span class="page-control is-disabled" aria-disabled="true">Sebelumnya</span>
+                        @else
+                            <a class="page-control" href="{{ $users->previousPageUrl() }}">Sebelumnya</a>
+                        @endif
+
+                        @for ($page = $firstPage; $page <= $lastPage; $page++)
+                            @if ($page === $users->currentPage())
+                                <span class="page-number is-current" aria-current="page">{{ $page }}</span>
+                            @else
+                                <a class="page-number" href="{{ $users->url($page) }}">{{ $page }}</a>
+                            @endif
+                        @endfor
+
+                        @if ($users->hasMorePages())
+                            <a class="page-control" href="{{ $users->nextPageUrl() }}">Selanjutnya</a>
+                        @else
+                            <span class="page-control is-disabled" aria-disabled="true">Selanjutnya</span>
+                        @endif
+                    </nav>
+                @endif
+            </footer>
+        </article>
+
+        <p class="super-audit-note">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5m0-8h.01" />
+            </svg>
+            Data yang ditampilkan mengikuti akun pengguna, role Spatie, penugasan gudang, dan sesi database yang aktif.
+        </p>
+    </div>
+
+    <style>
+        :root {
+            --dash-text-title: 1.15rem;
+            --dash-text-section: 1.05rem;
+            --dash-text-metric: 1.55rem;
+            --dash-text-body: .875rem;
+            --dash-text-helper: .75rem;
+            --dash-text-meta: .78rem;
+        }
+
+        .super-dashboard {
+            min-width: 0;
+        }
+
+        /* Header Halaman */
+        .super-users-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .super-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 600;
+        }
+
+        .super-breadcrumb a {
+            color: var(--brand-primary);
+            text-decoration: none;
+        }
+
+        .super-breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .super-page-title {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.45rem;
+            font-weight: 850;
+            line-height: 1.2;
+        }
+
+        .super-page-subtitle {
+            margin: 4px 0 0;
+            color: var(--text-muted);
+            font-size: var(--dash-text-body);
+        }
+
+        .super-header-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border-radius: var(--radius);
+            background: var(--brand-primary);
+            color: #fff;
+            font-size: var(--dash-text-body);
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+            transition: background .15s ease;
+        }
+
+        .super-header-btn:hover {
+            background: var(--brand-primary-d);
+        }
+
+        .super-header-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* 4 KPI Grid (Identik dengan Dashboard) */
+        .super-dashboard-kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+            margin: 0 0 20px;
+        }
+
+        .super-kpi {
+            position: relative;
+            display: flex;
+            min-width: 0;
+            min-height: 108px;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 4px;
+            overflow: hidden;
+            padding: 12px 14px 10px;
+            border: 1px solid var(--surface-border);
+            border-top: 3px solid var(--kpi-accent, var(--brand-primary));
+            border-radius: var(--radius);
+            background: #fff;
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .03);
+        }
+
+        .super-kpi-users {
+            --kpi-accent: var(--status-success);
+        }
+
+        .super-kpi-roles {
+            --kpi-accent: var(--brand-accent);
+        }
+
+        .super-kpi-warehouses {
+            --kpi-accent: var(--brand-primary);
+        }
+
+        .super-kpi-activity {
+            --kpi-accent: var(--status-neutral);
+        }
+
+        .super-kpi-heading {
+            padding-right: 24px;
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            letter-spacing: .055em;
+            line-height: 1.2;
+        }
+
+        .super-kpi-value {
+            color: var(--text-primary);
+            font-size: var(--dash-text-metric);
+            font-weight: 850;
+            line-height: 1.15;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .super-kpi-value small {
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 600;
+        }
+
+        .super-kpi-name-truncate {
+            font-size: 1.12rem;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .super-kpi-icon {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: grid;
+            width: 24px;
+            height: 24px;
+            place-items: center;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            color: var(--brand-primary);
+        }
+
+        .super-kpi-icon svg,
+        .super-search svg,
+        .super-filter-submit svg,
+        .super-audit-note svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 1.8;
+        }
+
+        .super-kpi-tag {
+            width: fit-content;
+            max-width: 100%;
+            overflow: hidden;
+            padding: 3px 5px;
+            border-radius: 3px;
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            letter-spacing: .025em;
+            line-height: 1.15;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tag-green {
+            background: rgba(63, 122, 82, .12);
+            color: var(--status-success);
+        }
+
+        .tag-navy {
+            background: rgba(91, 107, 121, .12);
+            color: var(--status-neutral);
+        }
+
+        .tag-teal {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+        }
+
+        /* Super Panel Container */
+        .super-panel {
+            min-width: 0;
+            overflow: hidden;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+        }
+
+        /* Filters */
+        .super-user-filters {
+            display: grid;
+            grid-template-columns: minmax(180px, 1.2fr) minmax(130px, .7fr) minmax(140px, .7fr) minmax(120px, .6fr) 38px auto;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--surface-border);
+            background: var(--surface-card);
+        }
+
+        .super-search,
+        .super-filter-select {
+            display: flex;
+            min-width: 0;
+            height: 38px;
+            align-items: center;
+            gap: 7px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-muted);
+        }
+
+        .super-search {
+            padding: 0 10px;
+        }
+
+        .super-search svg {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 16px;
+            color: var(--text-muted);
+        }
+
+        .super-search input,
+        .super-filter-select {
+            font: inherit;
+            font-size: var(--dash-text-helper);
+        }
+
+        .super-search input {
+            width: 100%;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            color: var(--text-primary);
+        }
+
+        .super-search input::placeholder {
+            color: var(--text-subtle);
+        }
+
+        .super-filter-select {
+            padding: 0 9px;
+        }
+
+        .super-filter-submit {
+            display: grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--brand-primary);
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+
+        .super-filter-submit:hover {
+            border-color: var(--brand-primary);
+            background: rgba(20, 92, 84, .06);
+        }
+
+        .super-filter-submit svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .super-filter-reset {
+            color: var(--status-critical);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            text-decoration: none;
+            padding: 4px 8px;
+        }
+
+        .super-filter-reset:hover {
+            text-decoration: underline;
+        }
+
+        /* Table */
+        .super-users-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .super-users-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .super-users-table th {
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--surface-border);
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            letter-spacing: .035em;
+        }
+
+        .super-users-table td {
+            height: 52px;
+            padding: 8px 14px;
+            border-bottom: 1px solid #edf2f0;
+            color: var(--text-primary);
+            font-size: var(--dash-text-body);
+            vertical-align: middle;
+        }
+
+        .super-users-table tbody tr:hover td {
+            background: rgba(20, 92, 84, .015);
+        }
+
+        .super-users-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        /* User Identity Cell */
+        .super-user-cell {
+            display: flex;
+            min-width: 170px;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .super-user-avatar {
+            display: grid;
+            width: 32px;
+            height: 32px;
+            flex: 0 0 32px;
+            place-items: center;
+            border: 1px solid #d6e3df;
+            border-radius: 50%;
+            background: #edf4f1;
+            color: var(--brand-primary);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+        }
+
+        .super-user-details {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
+            line-height: 1.25;
+        }
+
+        .super-user-details strong {
+            overflow: hidden;
+            color: var(--text-primary);
+            font-size: var(--dash-text-body);
+            font-weight: 700;
+            text-overflow: ellipsis;
+        }
+
+        .super-username-code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: var(--dash-text-helper);
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--surface-base);
+            padding: 3px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--surface-border);
+        }
+
+        /* Role Badges */
+        .super-role-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .super-role-badge,
+        .super-warehouse-chip,
+        .super-status {
+            display: inline-block;
+            max-width: 170px;
+            overflow: hidden;
+            padding: 4px 8px;
+            border-radius: var(--radius);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            line-height: 1.15;
+            text-transform: uppercase;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        .role-super {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+        }
+
+        .role-store {
+            background: rgba(201, 122, 43, .12);
+            color: var(--brand-accent-d);
+        }
+
+        .role-admin {
+            background: rgba(184, 121, 26, .12);
+            color: var(--status-warning);
+        }
+
+        .role-recording {
+            background: rgba(91, 107, 121, .12);
+            color: var(--status-neutral);
+        }
+
+        .role-custom {
+            background: rgba(91, 107, 121, .12);
+            color: var(--status-neutral);
+        }
+
+        .super-warehouse-chip {
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .super-warehouse-more {
+            display: inline-block;
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            margin-left: 4px;
+            background: var(--surface-base);
+            padding: 2px 5px;
+            border-radius: 999px;
+            border: 1px solid var(--surface-border);
+        }
+
+        .super-status.status-active {
+            background: rgba(63, 122, 82, .12);
+            color: var(--status-success);
+        }
+
+        .super-status.status-inactive {
+            background: rgba(91, 107, 121, .12);
+            color: var(--status-neutral);
+        }
+
+        .super-date-cell {
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .super-muted {
+            color: var(--text-subtle);
+            font-size: var(--dash-text-helper);
+        }
+
+        /* Actions */
+        .super-users-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+
+        .super-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+
+        .super-action-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 1.8;
+        }
+
+        .super-action-btn.btn-edit:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+            background: rgba(20, 92, 84, .06);
+        }
+
+        .super-action-btn.btn-delete:hover:not(:disabled) {
+            border-color: var(--status-critical);
+            color: var(--status-critical);
+            background: rgba(193, 68, 60, .08);
+        }
+
+        .super-action-btn:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        .super-table-empty {
+            padding: 32px 14px !important;
+            color: var(--text-muted) !important;
+            text-align: center;
+        }
+
+        /* Pagination Footer */
+        .super-users-pagination {
+            display: flex;
+            min-height: 50px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 14px;
+            border-top: 1px solid var(--surface-border);
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            flex-wrap: wrap;
+        }
+
+        .super-pagination-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .super-page-size-form {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .super-page-size-form select {
+            min-height: 28px;
+            padding: 2px 20px 2px 6px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-primary);
+            font-size: var(--dash-text-helper);
+        }
+
+        .super-pagination-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .super-pagination-nav a,
+        .super-pagination-nav span {
+            display: inline-flex;
+            min-width: 32px;
+            height: 32px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 6px;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .super-pagination-nav a.page-control,
+        .super-pagination-nav span.page-control {
+            border-color: var(--surface-border);
+            background: var(--surface-card);
+        }
+
+        .super-pagination-nav span.page-number.is-current {
+            border-color: var(--brand-primary);
+            background: var(--brand-primary);
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .super-pagination-nav a.page-number:hover,
+        .super-pagination-nav a.page-control:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+
+        .super-pagination-nav span.is-disabled {
+            color: var(--text-subtle);
+            cursor: not-allowed;
+        }
+
+        .super-audit-note {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 14px 0 0;
+            padding: 10px 12px;
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            border: 1px solid var(--surface-border);
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+        }
+
+        .super-audit-note svg {
+            flex: 0 0 auto;
+            color: var(--brand-primary);
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            clip-path: inset(50%);
+        }
+
+        @media (max-width: 1100px) {
+            .super-dashboard-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .super-user-filters {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .super-dashboard-kpis {
+                grid-template-columns: 1fr;
+            }
+
+            .super-users-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .super-user-filters {
+                grid-template-columns: 1fr;
+            }
+
+            .super-users-pagination {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .super-pagination-left {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+@endsection
