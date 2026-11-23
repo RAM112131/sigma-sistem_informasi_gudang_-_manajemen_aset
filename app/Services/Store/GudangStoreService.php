@@ -19,6 +19,7 @@ final class GudangStoreService
         int|string|null $requestedId,
         array $warehouseTypes,
         array $permissions = [],
+        int|string|null $fallbackId = null,
     ): Gudang {
         if ($permissions !== []) {
             abort_unless(
@@ -40,7 +41,22 @@ final class GudangStoreService
 
         $warehouse = $requestedId
             ? (clone $query)->whereKey((int) $requestedId)->first()
-            : $query->orderBy('nama')->first();
+            : null;
+
+        if ($requestedId) {
+            abort_unless($warehouse instanceof Gudang, 403, 'Anda belum ditugaskan ke Gudang Store aktif.');
+        } elseif ($fallbackId && is_numeric($fallbackId)) {
+            $fallbackWarehouseType = Gudang::query()
+                ->whereKey((int) $fallbackId)
+                ->value('jenis');
+
+            if (in_array($fallbackWarehouseType, $warehouseTypes, true)) {
+                $warehouse = (clone $query)->whereKey((int) $fallbackId)->first();
+                abort_unless($warehouse instanceof Gudang, 403, 'Anda belum ditugaskan ke Gudang Store aktif.');
+            }
+        }
+
+        $warehouse ??= $query->orderBy('nama')->first();
 
         abort_unless($warehouse instanceof Gudang, 403, 'Anda belum ditugaskan ke Gudang Store aktif.');
 

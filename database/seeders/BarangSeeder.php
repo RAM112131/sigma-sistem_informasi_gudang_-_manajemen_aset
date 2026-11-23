@@ -20,6 +20,7 @@ class BarangSeeder extends Seeder
     {
         $gudangSukahati = Gudang::where('kode', 'SUKAHATI')->first();
         $gudangStore = Gudang::where('kode', 'STORE')->first();
+        $gudangTamansari = Gudang::where('kode', 'TAMANSARI')->first();
 
         $satuanKg = Satuan::where('kode', 'KG')->first();
         $satuanPcs = Satuan::where('kode', 'PCS')->first();

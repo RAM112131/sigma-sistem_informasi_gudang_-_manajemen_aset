@@ -27,7 +27,7 @@ final class DashboardStoreController extends Controller
         abort_unless($user instanceof User, 403);
         $gudangStore = $this->gudangStoreService->resolveAssignedWarehouse(
             $user,
-            $request->query('gudang_id', session('active_gudang_id')),
+            $request->query('gudang_id'),
             ['holding', 'global_master', 'gudang_store'],
             [
                 'store_stok.read',
@@ -37,6 +37,7 @@ final class DashboardStoreController extends Controller
                 'store.view',
                 'store.read',
             ],
+            session('active_gudang_id'),
         );
         session(['active_gudang_id' => $gudangStore->id]);
 

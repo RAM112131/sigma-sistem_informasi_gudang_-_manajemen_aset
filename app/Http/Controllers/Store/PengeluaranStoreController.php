@@ -290,9 +290,10 @@ final class PengeluaranStoreController extends Controller
         abort_unless($user instanceof User, 403);
         $gudangStore = $this->gudangStoreService->resolveAssignedWarehouse(
             $user,
-            session('active_gudang_id'),
+            null,
             ['gudang_store'],
             $permissions,
+            session('active_gudang_id'),
         );
 
         session(['active_gudang_id' => $gudangStore->id]);

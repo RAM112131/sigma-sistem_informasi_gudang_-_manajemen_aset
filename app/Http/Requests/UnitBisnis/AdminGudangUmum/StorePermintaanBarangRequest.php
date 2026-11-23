@@ -19,6 +19,7 @@ final class StorePermintaanBarangRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'nomor_pr' => ['nullable', 'string', 'max:50'],
             'catatan' => ['nullable', 'string', 'max:2000'],
             'items' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.barang_id' => ['required', 'integer', 'distinct', 'exists:barangs,id'],

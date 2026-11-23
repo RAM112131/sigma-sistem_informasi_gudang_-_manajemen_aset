@@ -64,7 +64,18 @@ class PermintaanBarang extends Model
             ->where('nomor_pr', 'like', $searchPrefix.'%')
             ->count();
 
-        $sequence = str_pad((string) ($todayCount + 1), 4, '0', STR_PAD_LEFT);
+        $latestRecord = self::query()
+            ->where('nomor_pr', 'like', $searchPrefix.'%')
+            ->orderByDesc('id')
+            ->value('nomor_pr');
+
+        $lastSeq = 0;
+        if ($latestRecord && preg_match('/-(\d+)$/', $latestRecord, $matches)) {
+            $lastSeq = (int) $matches[1];
+        }
+
+        $nextSeq = max($todayCount + 1, $lastSeq + 1);
+        $sequence = str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
 
         return "{$searchPrefix}{$randomDigits}-{$sequence}";
     }

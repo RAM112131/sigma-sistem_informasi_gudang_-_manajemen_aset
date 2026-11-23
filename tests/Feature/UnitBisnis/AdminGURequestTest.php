@@ -208,6 +208,56 @@ final class AdminGURequestTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_request_number_is_displayed_and_increments_sequence_for_subsequent_requests(): void
+    {
+        [$user, $unit, $store, $barang] = $this->makeAdminContext();
+
+        // 1. Initial page load should display sequence 0001
+        $response = $this->actingAs($user)
+            ->withSession(['active_gudang_id' => $unit->id])
+            ->get(route('unit-bisnis.admin-gu.permintaan.index'));
+
+        $response->assertOk();
+        $response->assertSee('No. Permintaan / Request');
+        $response->assertSee('-0001');
+
+        // 2. Submit first request
+        $this->actingAs($user)
+            ->withSession(['active_gudang_id' => $unit->id])
+            ->post(route('unit-bisnis.admin-gu.permintaan.store'), [
+                'catatan' => 'Permintaan pertama',
+                'items' => [
+                    ['barang_id' => $barang->id, 'qty_diminta' => 5],
+                ],
+            ])
+            ->assertRedirect();
+
+        $first = PermintaanBarang::firstOrFail();
+        $this->assertStringEndsWith('-0001', $first->nomor_pr);
+
+        // 3. Opening page again should show sequence 0002
+        $response2 = $this->actingAs($user)
+            ->withSession(['active_gudang_id' => $unit->id])
+            ->get(route('unit-bisnis.admin-gu.permintaan.index'));
+
+        $response2->assertOk();
+        $response2->assertSee('-0002');
+
+        // 4. Submit second request
+        $this->actingAs($user)
+            ->withSession(['active_gudang_id' => $unit->id])
+            ->post(route('unit-bisnis.admin-gu.permintaan.store'), [
+                'catatan' => 'Permintaan kedua',
+                'items' => [
+                    ['barang_id' => $barang->id, 'qty_diminta' => 3],
+                ],
+            ])
+            ->assertRedirect();
+
+        $second = PermintaanBarang::where('id', '>', $first->id)->firstOrFail();
+        $this->assertStringEndsWith('-0002', $second->nomor_pr);
+    }
+
     /**
      * @return array{User, Gudang, Gudang, Barang}
      */

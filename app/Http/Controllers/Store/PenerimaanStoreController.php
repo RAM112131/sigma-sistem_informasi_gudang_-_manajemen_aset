@@ -200,9 +200,10 @@ final class PenerimaanStoreController extends Controller
         abort_unless($user instanceof User, 403);
         $gudang = $this->gudangStoreService->resolveAssignedWarehouse(
             $user,
-            $request->query('gudang_id', session('active_gudang_id')),
+            $request->query('gudang_id'),
             ['holding', 'global_master', 'gudang_store'],
             $permissions,
+            session('active_gudang_id'),
         );
         session(['active_gudang_id' => $gudang->id]);
 

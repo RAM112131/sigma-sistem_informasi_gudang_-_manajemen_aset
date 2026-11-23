@@ -498,7 +498,9 @@ final class AdminGudangUmumService
             (int) $gudangStore->getKey(),
         );
 
-        return compact('gudang', 'gudangStore', 'permintaans', 'barangs', 'stokStoreTersedia', 'status', 'search');
+        $nextNomorPr = PermintaanBarang::generateNomorPr((string) ($gudang->kode ?: $gudang->nama));
+
+        return compact('gudang', 'gudangStore', 'permintaans', 'barangs', 'stokStoreTersedia', 'status', 'search', 'nextNomorPr');
     }
 
     /**
@@ -549,9 +551,17 @@ final class AdminGudangUmumService
             ]);
         }
 
-        return DB::transaction(function () use ($validated, $user, $gudang, $gudangStore, $barangs): PermintaanBarang {
+        $nomorPr = ! empty($validated['nomor_pr'])
+            ? trim((string) $validated['nomor_pr'])
+            : PermintaanBarang::generateNomorPr((string) ($gudang->kode ?: $gudang->nama));
+
+        if (PermintaanBarang::where('nomor_pr', $nomorPr)->exists()) {
+            $nomorPr = PermintaanBarang::generateNomorPr((string) ($gudang->kode ?: $gudang->nama));
+        }
+
+        return DB::transaction(function () use ($validated, $user, $gudang, $gudangStore, $barangs, $nomorPr): PermintaanBarang {
             $permintaan = PermintaanBarang::create([
-                'nomor_pr' => PermintaanBarang::generateNomorPr((string) ($gudang->kode ?: $gudang->nama)),
+                'nomor_pr' => $nomorPr,
                 'gudang_peminta_id' => $gudang->getKey(),
                 'gudang_tujuan_id' => $gudangStore->getKey(),
                 'status' => 'baru',

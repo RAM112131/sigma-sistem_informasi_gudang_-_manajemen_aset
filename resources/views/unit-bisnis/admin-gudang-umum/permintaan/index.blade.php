@@ -174,7 +174,8 @@
                             top: opensAbove ? 'auto' : `${rect.bottom + gap}px`,
                             bottom: opensAbove ? `${window.innerHeight - rect.top + gap}px` : 'auto',
                             maxHeight: `${Math.max(80, Math.min(238, availableHeight))}px`,
-                            zIndex: 100000
+                            zIndex: 100000,
+                            backgroundColor: '#FFFFFF'
                         };
                     },
                     async searchBarang(index) {
@@ -277,6 +278,25 @@
                                 dibutuhkan.</p>
                         </div>
                         <span class="badge badge-neutral">Status awal: Menunggu Store</span>
+                    </div>
+
+                    <div class="gu-request-doc-strip">
+                        <div class="gu-request-doc-strip-main">
+                            <span class="gu-doc-strip-label">No. Permintaan / Request:</span>
+                            <span class="gu-doc-strip-number">{{ $nextNomorPr ?? '' }}</span>
+                            <span class="gu-doc-strip-badge">Otomatis</span>
+                        </div>
+                        <div class="gu-request-doc-strip-date">
+                            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                            <span>{{ now()->translatedFormat('d M Y') }}</span>
+                        </div>
+                        <input type="hidden" name="nomor_pr" value="{{ old('nomor_pr', $nextNomorPr ?? '') }}">
                     </div>
 
                     <div class="gu-request-form-table-wrap">
@@ -923,6 +943,66 @@
             background: var(--gu-surface);
         }
 
+        .gu-request-doc-strip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 8px 16px;
+            margin: 0;
+            background: var(--gu-background, #FAF8F5);
+            border-bottom: 1px solid var(--gu-border, #E4E2DC);
+        }
+
+        .gu-request-doc-strip-main {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .gu-doc-strip-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--gu-muted, #5B6B79);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .gu-doc-strip-number {
+            display: inline-block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--brand-primary, #145C54);
+            background: var(--gu-surface, #FFFFFF);
+            padding: 3px 8px;
+            border-radius: var(--radius, 4px);
+            border: 1px solid var(--surface-border, #E2E8F0);
+            letter-spacing: 0.03em;
+        }
+
+        .gu-doc-strip-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #E0F2FE;
+            color: #0369A1;
+            letter-spacing: 0.03em;
+        }
+
+        .gu-request-doc-strip-date {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--gu-muted, #5B6B79);
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
         .gu-request-form {
             width: 100%;
             max-width: 100%;
@@ -1053,13 +1133,15 @@
         }
 
         .gu-request-search-results {
+            box-sizing: border-box;
             max-height: 238px;
             overflow-y: auto;
-            border: 1px solid var(--surface-border);
-            border-radius: var(--radius);
-            background: var(--gu-surface);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, .16);
-            scrollbar-color: var(--surface-border) var(--surface-base);
+            border: 1px solid var(--surface-border, #CBD5E1);
+            border-radius: var(--radius, 8px);
+            background: #FFFFFF !important;
+            background-color: #FFFFFF !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, .15), 0 8px 10px -6px rgba(0, 0, 0, .1);
+            scrollbar-color: var(--surface-border, #CBD5E1) #F8FAFC;
             scrollbar-width: thin;
         }
 
@@ -1068,31 +1150,33 @@
         }
 
         .gu-request-search-results::-webkit-scrollbar-track {
-            background: var(--surface-base);
+            background: #F8FAFC;
         }
 
         .gu-request-search-results::-webkit-scrollbar-thumb {
-            border: 2px solid var(--surface-base);
-            border-radius: var(--radius-lg);
-            background: var(--surface-border);
+            border: 2px solid #F8FAFC;
+            border-radius: var(--radius-lg, 8px);
+            background: var(--surface-border, #CBD5E1);
         }
 
         .gu-request-search-option {
             display: block;
             width: 100%;
             min-height: 56px;
-            padding: 8px 10px;
+            padding: 8px 12px;
             border: 0;
-            border-bottom: 1px solid var(--surface-border);
-            background: var(--surface-card);
-            color: var(--text-primary);
+            border-bottom: 1px solid var(--surface-border, #E2E8F0);
+            background: #FFFFFF !important;
+            background-color: #FFFFFF !important;
+            color: var(--text-primary, #0F172A);
             cursor: pointer;
             text-align: left;
         }
 
         .gu-request-search-option:hover,
         .gu-request-search-option:focus-visible {
-            background: var(--surface-base);
+            background: #F8FAFC !important;
+            background-color: #F8FAFC !important;
         }
 
         .gu-request-search-option strong,
@@ -1129,16 +1213,20 @@
         }
 
         .gu-request-search-empty {
-            padding: 12px;
-            color: var(--text-muted);
-            font-size: .82rem;
+            padding: 16px 14px;
+            background: #FFFFFF !important;
+            background-color: #FFFFFF !important;
+            color: var(--text-muted, #64748B);
+            font-size: .84rem;
             text-align: center;
         }
 
         .gu-request-search-state {
-            padding: 12px;
-            color: var(--text-muted);
-            font-size: .82rem;
+            padding: 16px 14px;
+            background: #FFFFFF !important;
+            background-color: #FFFFFF !important;
+            color: var(--text-muted, #64748B);
+            font-size: .84rem;
             text-align: center;
         }
 
