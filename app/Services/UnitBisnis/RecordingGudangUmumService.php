@@ -279,20 +279,41 @@ final class RecordingGudangUmumService
 
         return DB::transaction(function () use ($activeGudang, $user, $validated): array {
             $confirmedCount = 0;
+            $transferIds = collect($validated['items'])
+                ->pluck('transfer_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            $transfers = TransferBarang::query()
+                ->whereIn('id', $transferIds)
+                ->where('gudang_tujuan_id', $activeGudang->getKey())
+                ->where('status', 'dikirim')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            if ($transfers->isEmpty()) {
+                return [
+                    'confirmed_count' => 0,
+                    'message' => 'Tidak ada kiriman berstatus dikirim yang diproses.',
+                ];
+            }
+
+            $existingReceipts = PenerimaanPemindahanUnit::query()
+                ->whereIn('transfer_barang_id', $transfers->keys())
+                ->get()
+                ->keyBy('transfer_barang_id');
+
+            $receivedAt = now();
+            $permintaanIdsToComplete = [];
 
             foreach ($validated['items'] as $item) {
                 $transferId = (int) $item['transfer_id'];
-                $transfer = TransferBarang::query()
-                    ->whereKey($transferId)
-                    ->where('gudang_tujuan_id', $activeGudang->getKey())
-                    ->lockForUpdate()
-                    ->first();
+                $transfer = $transfers->get($transferId);
 
                 if (! $transfer instanceof TransferBarang) {
-                    continue;
-                }
-
-                if ($transfer->status !== 'dikirim') {
                     continue;
                 }
 
@@ -312,11 +333,9 @@ final class RecordingGudangUmumService
                     ]);
                 }
 
-                $receivedAt = now();
-
-                PenerimaanPemindahanUnit::updateOrCreate(
-                    ['transfer_barang_id' => $transfer->getKey()],
-                    [
+                $existing = $existingReceipts->get($transfer->getKey());
+                if ($existing instanceof PenerimaanPemindahanUnit) {
+                    $existing->update([
                         'gudang_id' => $activeGudang->getKey(),
                         'barang_id' => $transfer->barang_id,
                         'qty_dikirim' => $transfer->qty_dikirim,
@@ -325,8 +344,20 @@ final class RecordingGudangUmumService
                         'catatan_discrepancy' => $catatan !== '' ? $catatan : null,
                         'diterima_oleh' => $user->getKey(),
                         'diterima_at' => $receivedAt,
-                    ]
-                );
+                    ]);
+                } else {
+                    PenerimaanPemindahanUnit::create([
+                        'transfer_barang_id' => $transfer->getKey(),
+                        'gudang_id' => $activeGudang->getKey(),
+                        'barang_id' => $transfer->barang_id,
+                        'qty_dikirim' => $transfer->qty_dikirim,
+                        'qty_diterima' => $qtyDiterima,
+                        'qty_rusak' => $qtyRusak,
+                        'catatan_discrepancy' => $catatan !== '' ? $catatan : null,
+                        'diterima_oleh' => $user->getKey(),
+                        'diterima_at' => $receivedAt,
+                    ]);
+                }
 
                 $transfer->update([
                     'status' => 'diterima',
@@ -338,8 +369,12 @@ final class RecordingGudangUmumService
                 $confirmedCount++;
 
                 if ($transfer->permintaan_barang_id !== null) {
-                    $this->completeRequestWhenFulfilled((int) $transfer->permintaan_barang_id);
+                    $permintaanIdsToComplete[$transfer->permintaan_barang_id] = true;
                 }
+            }
+
+            foreach (array_keys($permintaanIdsToComplete) as $permintaanId) {
+                $this->completeRequestWhenFulfilled((int) $permintaanId);
             }
 
             return [

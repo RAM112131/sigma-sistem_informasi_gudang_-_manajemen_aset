@@ -25,6 +25,7 @@ export function createRecordingGuReceipt(unitReceiptCode, initialData = {}) {
     })(),
     selectedStoreRequestStatusFilter: 'all',
     storeRequests: parsedStoreRequests,
+    storeReceipts: Array.isArray(initialData.storeReceipts) ? initialData.storeReceipts : [],
     unitReceiptCode,
     get directReceiptNumber() {
       if (initialData.nextDirectReceiptNumber) {
@@ -364,13 +365,48 @@ export function createRecordingGuReceipt(unitReceiptCode, initialData = {}) {
           return;
         }
 
+        const nowFormatted = new Intl.DateTimeFormat('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(new Date());
+
+        // Prepend confirmed items to local storeReceipts list
+        if (Array.isArray(this.storeReceipts)) {
+          for (const item of request.items) {
+            this.storeReceipts.unshift({
+              id: 'confirmed_' + (item.id || Math.random()),
+              nomor_sj: request.deliveryNote || request.id || '—',
+              nomor_pr: request.poNumber || '—',
+              tanggal_terima: nowFormatted,
+              gudang_asal: request.vendor || 'Gudang Store Pusat',
+              barang: item.name,
+              qty_dikirim: Number(item.requestQty || item.receivedQty || 0),
+              qty_diterima: Number(item.receivedQty || 0),
+              qty_rusak: Number(item.damagedQty || 0),
+              satuan: item.unit || 'pcs',
+              catatan: item.note || '',
+              supir: '',
+              penerima: 'Petugas Recording',
+            });
+          }
+        }
+
         this.storeReceiptNotice = '✓ ' + (data.message || 'Penerimaan Store berhasil dikonfirmasi!');
         request.status = 'sudah_diterima';
         request.statusLabel = 'Sudah Diterima';
 
-        setTimeout(() => {
-          window.location.reload();
-        }, 1200);
+        // Remove confirmed request immediately from active waiting list
+        this.storeRequests = this.storeRequests.filter((r) => r.id !== request.id);
+        if (this.storeRequests.length > 0) {
+          this.selectedStoreRequestId = this.storeRequests[0].id;
+        } else {
+          this.selectedStoreRequestId = '';
+        }
+
+        this.isSubmittingStore = false;
       } catch (err) {
         this.storeReceiptNotice = 'Terjadi kesalahan jaringan atau server saat memproses konfirmasi.';
         this.isSubmittingStore = false;

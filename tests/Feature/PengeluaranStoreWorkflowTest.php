@@ -91,27 +91,17 @@ final class PengeluaranStoreWorkflowTest extends TestCase
 
         $transfer = TransferBarang::query()->sole();
         $this->assertSame('diproses', $request->fresh()->status);
-        $this->assertSame('diminta', $transfer->status);
-        $this->assertSame(0, $transfer->qty_dikirim);
-        $this->assertNull($transfer->dikirim_at);
+        $this->assertSame('dikirim', $transfer->status);
+        $this->assertSame(5, $transfer->qty_dikirim);
+        $this->assertNotNull($transfer->dikirim_at);
 
         $this->get(route('store.pengeluaran.index', ['tab' => 'histori']))
             ->assertOk()
-            ->assertSee('Menunggu Pengiriman')
-            ->assertSee('name="qty_dikirim"', false);
+            ->assertSee('Dikirim');
 
         $this->get(route('store.pengeluaran.barang-search', ['q' => 'ITEM']))
             ->assertOk()
             ->assertJsonPath('data.0.stok_tersedia', 5);
-
-        $this->post("/store/pengeluaran/pemindahan/{$transfer->id}/kirim", [
-            'qty_dikirim' => 5,
-            'supir_pengantar' => 'Petugas Pengiriman',
-        ])->assertRedirect(route('store.pengeluaran.index', ['tab' => 'histori']));
-
-        $this->assertSame('dikirim', $transfer->fresh()->status);
-        $this->assertSame(5, $transfer->fresh()->qty_dikirim);
-        $this->assertSame('diproses', $request->fresh()->status);
     }
 
     public function test_partial_dispatch_releases_unshipped_allocation_back_to_request(): void
@@ -128,15 +118,10 @@ final class PengeluaranStoreWorkflowTest extends TestCase
         ]);
 
         $this->post("/store/pengeluaran/permintaan/{$request->id}/proses", [
-            'qty_dialokasikan' => [$request->details->first()->id => 5],
+            'qty_dialokasikan' => [$request->details->first()->id => 3],
         ])->assertRedirect(route('store.pengeluaran.index', ['tab' => 'histori']));
 
         $transfer = TransferBarang::query()->sole();
-        $this->post("/store/pengeluaran/pemindahan/{$transfer->id}/kirim", [
-            'qty_dikirim' => 3,
-            'supir_pengantar' => 'Petugas Pengiriman',
-        ])->assertRedirect(route('store.pengeluaran.index', ['tab' => 'histori']));
-
         $this->assertSame('dikirim', $transfer->fresh()->status);
         $this->assertSame(3, $transfer->fresh()->qty_dikirim);
         $this->assertSame(3, $request->details->first()->fresh()->qty_diproses);
@@ -178,7 +163,8 @@ final class PengeluaranStoreWorkflowTest extends TestCase
         $this->assertSame((int) $store->id, (int) $transfer->gudang_asal_id);
         $this->assertSame((int) $unit->id, (int) $transfer->gudang_tujuan_id);
         $this->assertSame(4, $transfer->qty_diminta);
-        $this->assertSame('diminta', $transfer->status);
+        $this->assertSame('dikirim', $transfer->status);
+        $this->assertSame(4, $transfer->qty_dikirim);
 
         $this->get(route('store.pengeluaran.barang-search', ['q' => 'ITEM']))
             ->assertOk()
@@ -341,10 +327,6 @@ final class PengeluaranStoreWorkflowTest extends TestCase
         ])->assertRedirect(route('store.pengeluaran.index', ['tab' => 'histori']));
 
         $transfer = TransferBarang::query()->sole();
-        $this->post("/store/pengeluaran/pemindahan/{$transfer->id}/kirim", [
-            'qty_dikirim' => 4,
-            'supir_pengantar' => 'Petugas Pengiriman',
-        ])->assertRedirect(route('store.pengeluaran.index', ['tab' => 'histori']));
 
         $this->get(route('store.pengeluaran.index', ['tab' => 'histori']))
             ->assertOk()
@@ -353,7 +335,7 @@ final class PengeluaranStoreWorkflowTest extends TestCase
             ->assertDontSee('Dokumen Pengeluaran')
             ->assertSee('Detail Barang')
             ->assertSee('Cetak Surat Jalan')
-            ->assertSee($transfer->nomor_sj);
+            ->assertSee(preg_replace('/-\d+$/', '', (string) $transfer->nomor_sj));
     }
 
     /**

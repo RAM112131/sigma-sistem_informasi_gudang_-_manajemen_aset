@@ -28,6 +28,7 @@
         $receiptInitialData = [
             'directItemCatalog' => $directItemCatalog ?? [],
             'storeRequests' => $storeRequests ?? [],
+            'storeReceipts' => $storeReceipts ?? [],
             'nextDirectReceiptNumber' => $nextDirectReceiptNumber ?? null,
             'directSubmitUrl' => route('unit-bisnis.recording-gu.penerimaan.store'),
             'storeSubmitUrl' => route('unit-bisnis.recording-gu.penerimaan.confirm-transfer'),
@@ -601,72 +602,69 @@
                 </div>
             </footer>
 
-            @if (!empty($storeReceipts) && count($storeReceipts) > 0)
-                <section class="receipt-card receipt-direct-card" style="margin-top: 14px;">
-                    <div class="receipt-card-heading">
-                        <div>
-                            <h2 style="font-size: 0.95rem; font-weight: 750;">Riwayat Penerimaan dari Gudang Store</h2>
-                            <p style="font-size: 0.78rem; color: var(--receipt-muted); margin-top: 2px;">Daftar pengiriman
-                                barang dari Store yang telah selesai diperiksa dan diterima di
-                                {{ $activeGudang?->nama ?? 'gudang unit aktif' }}</p>
-                        </div>
+            <section class="receipt-card receipt-direct-card" style="margin-top: 14px;" x-show="storeReceipts.length > 0">
+                <div class="receipt-card-heading">
+                    <div>
+                        <h2 style="font-size: 0.95rem; font-weight: 750;">Riwayat Penerimaan dari Gudang Store</h2>
+                        <p style="font-size: 0.78rem; color: var(--receipt-muted); margin-top: 2px;">Daftar pengiriman
+                            barang dari Store yang telah selesai diperiksa dan diterima di
+                            {{ $activeGudang?->nama ?? 'gudang unit aktif' }}</p>
                     </div>
-                    <div class="receipt-table-wrap">
-                        <table class="receipt-detail-table">
-                            <thead>
+                </div>
+                <div class="receipt-table-wrap">
+                    <table class="receipt-detail-table">
+                        <thead>
+                            <tr>
+                                <th>No. Surat Jalan</th>
+                                <th>Referensi Permintaan</th>
+                                <th>Tanggal Terima</th>
+                                <th>Pengirim / Asal</th>
+                                <th>Barang</th>
+                                <th>Total Qty</th>
+                                <th>Kondisi / Discrepancy</th>
+                                <th>Penerima</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="rcv in storeReceipts" :key="rcv.id">
                                 <tr>
-                                    <th>No. Surat Jalan</th>
-                                    <th>Referensi Permintaan</th>
-                                    <th>Tanggal Terima</th>
-                                    <th>Pengirim / Asal</th>
-                                    <th>Barang</th>
-                                    <th>Total Qty</th>
-                                    <th>Kondisi / Discrepancy</th>
-                                    <th>Penerima</th>
-                                    <th>Status</th>
+                                    <td><strong class="receipt-direct-input-mono"
+                                            style="color:var(--brand-primary); font-size:0.75rem;" x-text="rcv.nomor_sj"></strong>
+                                    </td>
+                                    <td x-text="rcv.nomor_pr || '—'"></td>
+                                    <td x-text="rcv.tanggal_terima"></td>
+                                    <td>
+                                        <strong x-text="rcv.gudang_asal"></strong>
+                                        <template x-if="rcv.supir">
+                                            <div><small style="color:#6b7280;" x-text="'Supir: ' + rcv.supir"></small></div>
+                                        </template>
+                                    </td>
+                                    <td x-text="rcv.barang"></td>
+                                    <td><strong x-text="Number(rcv.qty_diterima).toLocaleString('id-ID')"></strong>
+                                        <span x-text="rcv.satuan"></span></td>
+                                    <td>
+                                        <template x-if="Number(rcv.qty_rusak) > 0">
+                                            <span style="color:#b91c1c; font-size:0.72rem; font-weight:700;" x-text="'Rusak: ' + rcv.qty_rusak"></span>
+                                        </template>
+                                        <template x-if="!Number(rcv.qty_rusak) || Number(rcv.qty_rusak) <= 0">
+                                            <span style="color:#059669; font-size:0.72rem; font-weight:600;">Sesuai</span>
+                                        </template>
+                                        <template x-if="rcv.catatan">
+                                            <small style="display:block; color:#6b7280; font-size:0.67rem;" x-text="rcv.catatan"></small>
+                                        </template>
+                                    </td>
+                                    <td x-text="rcv.penerima"></td>
+                                    <td>
+                                        <span class="receipt-picker-status-pill pill-sudah_diterima">Selesai
+                                            Diterima</span>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($storeReceipts as $rcv)
-                                    <tr>
-                                        <td><strong class="receipt-direct-input-mono"
-                                                style="color:var(--brand-primary); font-size:0.75rem;">{{ $rcv['nomor_sj'] }}</strong>
-                                        </td>
-                                        <td>{{ $rcv['nomor_pr'] ?? '—' }}</td>
-                                        <td>{{ $rcv['tanggal_terima'] }}</td>
-                                        <td><strong>{{ $rcv['gudang_asal'] }}</strong>
-                                            @if (!empty($rcv['supir']))
-                                                <br><small style="color:#6b7280;">Supir: {{ $rcv['supir'] }}</small>
-                                            @endif
-                                        </td>
-                                        <td>{{ $rcv['barang'] }}</td>
-                                        <td><strong>{{ number_format((float) $rcv['qty_diterima'], 0) }}</strong>
-                                            {{ $rcv['satuan'] }}</td>
-                                        <td>
-                                            @if ($rcv['qty_rusak'] > 0)
-                                                <span style="color:#b91c1c; font-size:0.72rem; font-weight:700;">Rusak:
-                                                    {{ $rcv['qty_rusak'] }}</span>
-                                            @else
-                                                <span
-                                                    style="color:#059669; font-size:0.72rem; font-weight:600;">Sesuai</span>
-                                            @endif
-                                            @if (!empty($rcv['catatan']))
-                                                <small
-                                                    style="display:block; color:#6b7280; font-size:0.67rem;">{{ Str::limit($rcv['catatan'], 30) }}</small>
-                                            @endif
-                                        </td>
-                                        <td>{{ $rcv['penerima'] }}</td>
-                                        <td>
-                                            <span class="receipt-picker-status-pill pill-sudah_diterima">Selesai
-                                                Diterima</span>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            @endif
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </section>
     </div>
 
@@ -2401,19 +2399,39 @@
         }
 
         .receipt-direct-action-bar {
-            position: sticky;
+            position: fixed;
             bottom: 0;
-            z-index: 8;
+            left: var(--sidebar-width);
+            right: 0;
+            z-index: 30;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 14px;
-            margin: 0 -32px -48px;
             padding: 11px 32px;
             border-top: 1px solid #e1e9e6;
             background: rgba(255, 255, 255, .97);
             box-shadow: 0 -4px 16px rgba(22, 55, 49, .08);
             backdrop-filter: blur(8px);
+        }
+
+        /* Tambah ruang di bawah panel agar konten tidak tertutup footer fixed */
+        .receipt-direct-panel,
+        .receipt-store-panel {
+            padding-bottom: 72px;
+        }
+
+        @media (max-width: 1024px) {
+            .receipt-direct-action-bar,
+            .receipt-requested-action-bar {
+                left: 0;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .receipt-direct-action-bar {
+                padding: 10px 16px;
+            }
         }
 
         .receipt-direct-status {
@@ -3339,20 +3357,27 @@
         }
 
         .receipt-requested-action-bar {
-            position: sticky;
+            position: fixed;
             bottom: 0;
-            z-index: 8;
+            left: var(--sidebar-width);
+            right: 0;
+            z-index: 30;
             display: flex;
             min-width: 0;
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            margin: 0 -32px -48px;
             padding: 9px 24px 9px 32px;
             border-top: 1px solid #e1e9e6;
             background: rgba(255, 255, 255, .97);
             box-shadow: 0 -4px 16px rgba(22, 55, 49, .08);
             backdrop-filter: blur(8px);
+        }
+
+        @media (max-width: 640px) {
+            .receipt-requested-action-bar {
+                padding: 9px 12px;
+            }
         }
 
         .receipt-sticky-summary,
@@ -4101,8 +4126,7 @@
             }
 
             .receipt-direct-action-bar {
-                margin: 0 -16px -36px;
-                padding: 10px 12px;
+                padding: 10px 16px;
             }
 
             .receipt-direct-status>div>span {
@@ -4149,7 +4173,6 @@
             }
 
             .receipt-requested-action-bar {
-                margin: 0 -16px -36px;
                 padding: 9px 12px;
             }
 
@@ -4223,8 +4246,6 @@
             }
 
             .receipt-requested-action-bar {
-                margin-right: -16px;
-                margin-left: -16px;
                 padding-right: 10px;
                 padding-left: 10px;
             }
@@ -4550,7 +4571,7 @@
 
         .receipt-direct-action-bar {
             border-color: var(--surface-border);
-            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            border-radius: 0;
             background: rgba(255, 255, 255, .97);
         }
 

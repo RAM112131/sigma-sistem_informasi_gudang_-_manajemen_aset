@@ -275,18 +275,10 @@
                                                     <span class="badge"
                                                         style="background:#DCFCE7; color:#15803D; font-size:0.72rem; padding:2px 8px; border-radius:10px; font-weight:600;">Diterima
                                                         Unit</span>
-                                                @elseif($anyDikirim && !$hasMenungguKirim)
+                                                @else
                                                     <span class="badge"
                                                         style="background:#E0F2FE; color:#0369A1; font-size:0.72rem; padding:2px 8px; border-radius:10px; font-weight:600;">Dalam
                                                         Pengiriman</span>
-                                                @else
-                                                    <span class="badge"
-                                                        style="background:#FEF3D6; color:#B45309; font-size:0.72rem; padding:2px 8px; border-radius:10px; font-weight:600;">Menunggu
-                                                        Konfirmasi Kirim</span>
-                                                @endif
-                                                @if ($sjGroup->first()?->supir_pengantar)
-                                                    <span style="color:#64748B; font-size:0.78rem;">· Supir:
-                                                        <strong>{{ $sjGroup->first()->supir_pengantar }}</strong></span>
                                                 @endif
                                             </div>
                                         @endforeach

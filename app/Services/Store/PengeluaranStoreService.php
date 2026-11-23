@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -533,9 +534,12 @@ final readonly class PengeluaranStoreService
                     'gudang_tujuan_id' => $lockedRequest->gudang_peminta_id,
                     'barang_id' => $detail->barang_id,
                     'qty_diminta' => $qty,
-                    'qty_dikirim' => 0,
+                    'qty_dikirim' => $qty,
                     'qty_diterima' => 0,
-                    'status' => 'diminta',
+                    'status' => 'dikirim',
+                    'dikirim_oleh' => Auth::id(),
+                    'dikirim_at' => now(),
+                    'supir_pengantar' => null,
                 ]);
 
                 $detail->increment('qty_diproses', $qty);
@@ -629,9 +633,12 @@ final readonly class PengeluaranStoreService
                     'gudang_tujuan_id' => $gudangTujuanId,
                     'barang_id' => $barang->id,
                     'qty_diminta' => $qty,
-                    'qty_dikirim' => 0,
+                    'qty_dikirim' => $qty,
                     'qty_diterima' => 0,
-                    'status' => 'diminta',
+                    'status' => 'dikirim',
+                    'dikirim_oleh' => Auth::id(),
+                    'dikirim_at' => now(),
+                    'supir_pengantar' => null,
                 ]);
 
                 $lineIdx++;
@@ -677,7 +684,7 @@ final readonly class PengeluaranStoreService
     public function confirmShipment(
         TransferBarang $transfer,
         int $qtyDikirim,
-        string $supirPengantar,
+        ?string $supirPengantar,
         ?string $fotoPath,
         int $userId,
         Gudang $gudangStore

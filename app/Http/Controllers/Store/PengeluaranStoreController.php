@@ -182,7 +182,7 @@ final class PengeluaranStoreController extends Controller
         );
 
         return redirect()->route('store.pengeluaran.index', ['tab' => 'histori'])
-            ->with('success', "Alokasi permintaan {$permintaan->nomor_pr} berhasil dibuat (No. Dokumen: {$nomorKeluar}). Silakan konfirmasi pengiriman supir saat barang siap diberangkatkan.")
+            ->with('success', "Pengiriman barang untuk permintaan {$permintaan->nomor_pr} berhasil diproses dan dikirim (No. Dokumen: {$nomorKeluar}).")
             ->with('print_sj', $nomorKeluar);
     }
 
@@ -230,7 +230,7 @@ final class PengeluaranStoreController extends Controller
         $nomorKeluar = $this->pengeluaranService->createDirectTransfer($validated, $gudangStore);
 
         return redirect()->route('store.pengeluaran.index', ['tab' => 'histori'])
-            ->with('success', "Dokumen pengeluaran {$nomorKeluar} berhasil dibuat. Silakan konfirmasi pengiriman supir saat barang siap diberangkatkan.")
+            ->with('success', "Pengiriman barang dokumen {$nomorKeluar} berhasil diproses dan dikirim.")
             ->with('print_sj', $nomorKeluar);
     }
 
@@ -258,7 +258,7 @@ final class PengeluaranStoreController extends Controller
         ]);
         $validated = $request->validate([
             'qty_dikirim' => ['required', 'integer', 'min:1'],
-            'supir_pengantar' => ['required', 'string', 'max:255'],
+            'supir_pengantar' => ['nullable', 'string', 'max:255'],
             'foto_bukti' => ['nullable', 'image', 'max:5120'],
         ]);
 
@@ -270,7 +270,7 @@ final class PengeluaranStoreController extends Controller
         $nomorBase = $this->pengeluaranService->confirmShipment(
             $transfer,
             (int) $validated['qty_dikirim'],
-            $validated['supir_pengantar'],
+            $validated['supir_pengantar'] ?? null,
             $fotoPath,
             (int) Auth::id(),
             $gudangStore

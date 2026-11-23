@@ -19,11 +19,11 @@ final class ConfirmStoreTransferReceiptRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'transfer_id' => ['nullable', 'integer', 'exists:transfer_barangs,id'],
+            'transfer_id' => ['nullable', 'integer'],
             'request_id' => ['nullable', 'string', 'max:255'],
             'has_surat_jalan' => ['nullable', 'boolean'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.transfer_id' => ['required', 'integer', 'exists:transfer_barangs,id'],
+            'items.*.transfer_id' => ['required', 'integer'],
             'items.*.qty_diterima' => ['required', 'numeric', 'min:0'],
             'items.*.qty_rusak' => ['nullable', 'numeric', 'min:0'],
             'items.*.catatan_discrepancy' => ['nullable', 'string', 'max:1000'],

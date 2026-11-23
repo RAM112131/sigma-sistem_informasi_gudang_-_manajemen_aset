@@ -277,7 +277,7 @@
                                 class="btn btn-outline">Reset</a>
                             <button type="submit" class="btn btn-primary" style="font-weight:700;"
                                 @disabled($allocationDetails->isEmpty())>
-                                Buat Dokumen Pengeluaran (Draft SJ)
+                                Kirim Barang & Cetak Surat Jalan
                             </button>
                         </div>
                     </div>
@@ -667,7 +667,7 @@
                             <a href="{{ route('store.pengeluaran.index', ['tab' => 'pemindahan']) }}"
                                 class="btn btn-outline">Reset</a>
                             <button type="submit" class="btn btn-primary" style="font-weight:700;"
-                                :disabled="!canSubmit">Buat Dokumen Pengeluaran (Draft SJ)</button>
+                                :disabled="!canSubmit">Kirim Barang & Cetak Surat Jalan</button>
                         </div>
                     </div>
                 </form>

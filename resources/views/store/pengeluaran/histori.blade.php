@@ -698,23 +698,18 @@
                                                             min="1" max="{{ $item->qty_diminta }}"
                                                             value="{{ $item->qty_diminta }}"
                                                             title="Jumlah aktual dikirim" required>
-                                                        <input type="text" name="supir_pengantar" class="form-control"
-                                                            style="width:130px; min-height:30px; padding:2px 8px; font-size:0.8rem;"
-                                                            placeholder="Nama Supir" required>
                                                         <button type="submit" class="btn btn-primary"
                                                             style="min-height:30px; padding:3px 10px; font-size:0.78rem; font-weight:700; border-radius:6px; white-space:nowrap;">
-                                                            🚚 Kirim Fisik
+                                                            Kirim Sekarang
                                                         </button>
                                                     </form>
                                                 @else
                                                     <div style="font-size:0.78rem; color:#64748B;">
-                                                        @if ($item->supir_pengantar)
-                                                            Supir: <strong
-                                                                style="color:#334155;">{{ $item->supir_pengantar }}</strong>
-                                                        @endif
                                                         @if ($item->dikirim_at)
                                                             <div>{{ $item->dikirim_at->translatedFormat('d M Y, H:i') }}
                                                             </div>
+                                                        @else
+                                                            <div>—</div>
                                                         @endif
                                                     </div>
                                                 @endif

@@ -282,7 +282,17 @@
 
                     <div class="gu-request-doc-strip">
                         <div class="gu-request-doc-strip-main">
-                            <span class="gu-doc-strip-label">No. Permintaan / Request:</span>
+                            <span class="gu-doc-strip-label">
+                                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                    <line x1="16" y1="13" x2="8" y2="13" />
+                                    <line x1="16" y1="17" x2="8" y2="17" />
+                                    <polyline points="10 9 9 9 8 9" />
+                                </svg>
+                                No. Permintaan / Request:
+                            </span>
                             <span class="gu-doc-strip-number">{{ $nextNomorPr ?? '' }}</span>
                             <span class="gu-doc-strip-badge">Otomatis</span>
                         </div>
@@ -300,17 +310,18 @@
                     </div>
 
                     <div class="gu-request-form-table-wrap">
-                        <table class="data-table gu-request-form-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Barang</th>
-                                    <th scope="col">Stok Store tersedia</th>
-                                    <th scope="col">Jumlah</th>
-                                    <th scope="col">Catatan barang <span>(opsional)</span></th>
-                                    <th scope="col"><span class="sr-only">Aksi</span></th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        <div class="gu-request-table-card">
+                            <table class="data-table gu-request-form-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Barang</th>
+                                        <th scope="col">Stok Store tersedia</th>
+                                        <th scope="col">Jumlah</th>
+                                        <th scope="col">Catatan barang <span>(opsional)</span></th>
+                                        <th scope="col"><span class="sr-only">Aksi</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                                 <tr>
                                     <td data-label="Barang">
                                         <label class="sr-only" for="gu-request-item-0">Barang baris 1</label>
@@ -410,6 +421,7 @@
                                 </template>
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     <div class="gu-request-form-actions">
@@ -517,7 +529,7 @@
                     <select class="form-control" id="gu-request-status" name="status">
                         <option value="">Semua status</option>
                         <option value="baru" @selected($status === 'baru')>Menunggu Store</option>
-                        <option value="diproses" @selected($status === 'diproses')>Sedang diproses</option>
+                        <option value="diproses" @selected($status === 'diproses')>Dalam Pengiriman</option>
                         <option value="selesai" @selected($status === 'selesai')>Selesai</option>
                         <option value="ditolak" @selected($status === 'ditolak')>Ditolak</option>
                     </select>
@@ -542,7 +554,7 @@
                             @php
                                 [$statusLabel, $statusClass] = match ($permintaan->status) {
                                     'baru' => ['Menunggu Store', 'badge-warning'],
-                                    'diproses' => ['Sedang diproses', 'badge-neutral'],
+                                    'diproses' => ['Dalam Pengiriman', 'badge-brand'],
                                     'selesai' => ['Selesai', 'badge-success'],
                                     'ditolak' => ['Ditolak', 'badge-critical'],
                                     default => [$permintaan->status, 'badge-neutral'],
@@ -605,11 +617,11 @@
                                                                 'badge-critical',
                                                             ],
                                                             $qtyDiproses >= $qtyDiminta => [
-                                                                'Terpenuhi',
+                                                                'Dikirim Store',
                                                                 'badge-success',
                                                             ],
-                                                            $qtyDiproses > 0 => ['Dipenuhi sebagian', 'badge-warning'],
-                                                            default => ['Belum dipenuhi', 'badge-neutral'],
+                                                            $qtyDiproses > 0 => ['Dikirim sebagian', 'badge-warning'],
+                                                            default => ['Menunggu Store', 'badge-neutral'],
                                                         };
                                                     @endphp
                                                     <tr>
@@ -949,10 +961,12 @@
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 12px;
-            padding: 8px 16px;
-            margin: 0;
-            background: var(--gu-background, #FAF8F5);
-            border-bottom: 1px solid var(--gu-border, #E4E2DC);
+            padding: 10px 16px;
+            margin: 16px 16px 16px 16px;
+            background: #F8FAFC;
+            border: 1px solid var(--gu-border, #E2E8F0);
+            border-radius: var(--radius-md, 8px);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
         }
 
         .gu-request-doc-strip-main {
@@ -963,9 +977,12 @@
         }
 
         .gu-doc-strip-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             font-size: 0.75rem;
             font-weight: 700;
-            color: var(--gu-muted, #5B6B79);
+            color: #64748B;
             text-transform: uppercase;
             letter-spacing: 0.04em;
         }
@@ -976,10 +993,10 @@
             font-size: 0.84rem;
             font-weight: 700;
             color: var(--brand-primary, #145C54);
-            background: var(--gu-surface, #FFFFFF);
+            background: #FFFFFF;
             padding: 3px 8px;
             border-radius: var(--radius, 4px);
-            border: 1px solid var(--surface-border, #E2E8F0);
+            border: 1px solid #CBD5E1;
             letter-spacing: 0.03em;
         }
 
@@ -987,10 +1004,11 @@
             font-size: 0.65rem;
             font-weight: 700;
             text-transform: uppercase;
-            padding: 2px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
-            background: #E0F2FE;
-            color: #0369A1;
+            background: rgba(20, 92, 84, 0.08);
+            color: var(--brand-primary, #145C54);
+            border: 1px solid rgba(20, 92, 84, 0.2);
             letter-spacing: 0.03em;
         }
 
@@ -998,7 +1016,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            color: var(--gu-muted, #5B6B79);
+            color: #64748B;
             font-size: 0.78rem;
             font-weight: 600;
         }
@@ -1025,15 +1043,23 @@
         .gu-request-form-table-wrap {
             width: 100%;
             max-width: 100%;
-            overflow-x: auto;
             margin-top: 0;
             padding: 0 16px;
+        }
+
+        .gu-request-table-card {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--gu-border, #E2E8F0);
+            border-radius: var(--radius-md, 8px);
+            background: #FFFFFF;
         }
 
         .gu-request-form-table {
             width: 100%;
             min-width: 0;
             table-layout: fixed;
+            border-collapse: collapse;
         }
 
         .gu-request-form-table th:nth-child(1) {
@@ -1057,9 +1083,9 @@
         }
 
         .gu-request-form-table th {
-            padding: 10px 8px;
+            padding: 10px 10px;
             border-bottom: 1px solid var(--gu-border);
-            background: var(--gu-background);
+            background: #F8FAFC;
             color: var(--gu-muted);
             font-size: .7rem;
             font-weight: 800;
@@ -1070,9 +1096,13 @@
         }
 
         .gu-request-form-table td {
-            padding: 8px;
+            padding: 8px 10px;
             border-bottom: 1px solid var(--gu-border);
             vertical-align: top;
+        }
+
+        .gu-request-form-table tr:last-child td {
+            border-bottom: none;
         }
 
         .gu-request-form-table th span {
@@ -1565,6 +1595,12 @@
 
             .gu-request-details-table {
                 min-width: 680px;
+            }
+
+            .gu-request-table-card {
+                border: none;
+                border-radius: 0;
+                background: transparent;
             }
 
             .gu-request-form-table,
