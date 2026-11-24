@@ -89,4 +89,12 @@ try {
     }
 
     exit(1);
+} finally {
+    if (function_exists('app') && app()->bound('db')) {
+        try {
+            app('db')->disconnect();
+        } catch (Throwable) {
+            // Ignore disconnect errors during shutdown
+        }
+    }
 }

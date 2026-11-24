@@ -37,6 +37,6 @@
         "DB_SCHEMA": "sigma_shellstoy",
         "SESSION_DRIVER": "cookie",
         "CACHE_STORE": "array",
-        "DB_PERSISTENT": "true"
+        "DB_PERSISTENT": "false"
     }
 }

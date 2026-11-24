@@ -99,7 +99,7 @@ return [
             'search_path' => env('DB_SCHEMA', 'public'),
             'sslmode' => env('DB_SSLMODE', 'disable'),
             'options' => extension_loaded('pdo_pgsql') ? [
-                PDO::ATTR_PERSISTENT => (bool) env('DB_PERSISTENT', false),
+                PDO::ATTR_PERSISTENT => filter_var(env('DB_PERSISTENT', false), FILTER_VALIDATE_BOOLEAN),
                 PDO::ATTR_TIMEOUT => (int) env('DB_TIMEOUT', 5),
             ] : [],
         ],
