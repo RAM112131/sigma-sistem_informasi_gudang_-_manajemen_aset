@@ -350,21 +350,6 @@
                         </div>
                     @endif
                 </div>
-
-                <div
-                    class="flex items-start gap-2.5 rounded-lg border border-[#145C54]/20 bg-[#E8F1EF] p-3 text-xs leading-relaxed text-[#1F2523]">
-                    <svg aria-hidden="true" class="mt-0.5 h-5 w-5 shrink-0 text-[#145C54]" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="1.8">
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 11v5M12 8h.01" />
-                    </svg>
-                    <p>
-                        <strong class="text-[#145C54]">Petunjuk Rekonsiliasi Fisik:</strong>
-                        Masukkan kuantitas retur fisik yang diserahkan kembali. Qty Netto Terpakai dan Jurnal COGS akan
-                        otomatis dihitung. HPP terkunci menggunakan nilai pada BPB.
-                    </p>
-                </div>
-
                 <script type="application/json" id="reconciliation-workspace-items">@json($workspaceItems, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)</script>
                 <form method="POST"
                     action="{{ route('unit-bisnis.admin-gu.rekonsiliasi-pengeluaran.verify', $selectedIssue->getKey()) }}"
