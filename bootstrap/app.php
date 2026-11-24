@@ -26,30 +26,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->report(function (Throwable $e): void {
-            http_response_code(500);
-            header('Content-Type: text/plain; charset=UTF-8');
-            echo "=== REAL UNDERLYING ERROR ===\n";
-            echo 'Class: '.get_class($e)."\n";
-            echo 'Message: '.$e->getMessage()."\n";
-            echo 'File: '.$e->getFile().':'.$e->getLine()."\n\n";
-            echo "Stack trace:\n".$e->getTraceAsString();
-
-            $prev = $e->getPrevious();
-            while ($prev) {
-                echo "\n\nCaused by:\n";
-                echo 'Class: '.get_class($prev)."\n";
-                echo 'Message: '.$prev->getMessage()."\n";
-                echo 'File: '.$prev->getFile().':'.$prev->getLine()."\n\n";
-                echo $prev->getTraceAsString();
-                $prev = $prev->getPrevious();
-            }
-
-            exit(1);
-        });
-
         $exceptions->shouldRenderJsonWhen(
-            fn () => true,
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })->create();
 
