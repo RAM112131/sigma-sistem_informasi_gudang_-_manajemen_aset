@@ -2,25 +2,46 @@
 
 declare(strict_types=1);
 
-$storagePath = getenv('LARAVEL_STORAGE_PATH') ?: sys_get_temp_dir().'/sigma-storage';
+$storagePath = '/tmp/storage';
 $directories = [
-    'app/private',
-    'app/public',
-    'framework/cache/data',
-    'framework/sessions',
-    'framework/views',
-    'logs',
+    $storagePath.'/app/private',
+    $storagePath.'/app/public',
+    $storagePath.'/framework/cache/data',
+    $storagePath.'/framework/sessions',
+    $storagePath.'/framework/views',
+    $storagePath.'/logs',
+    '/tmp/bootstrap/cache',
 ];
 
-foreach ($directories as $directory) {
-    $path = $storagePath.'/'.$directory;
-
-    if (! is_dir($path) && ! mkdir($path, 0755, true) && ! is_dir($path)) {
-        throw new RuntimeException(sprintf('Unable to create Laravel storage directory: %s', $path));
+foreach ($directories as $path) {
+    if (! is_dir($path)) {
+        mkdir($path, 0755, true);
     }
 }
 
-$_ENV['LARAVEL_STORAGE_PATH'] = $storagePath;
-$_SERVER['LARAVEL_STORAGE_PATH'] = $storagePath;
+$envVars = [
+    'LARAVEL_STORAGE_PATH' => $storagePath,
+    'VIEW_COMPILED_PATH' => $storagePath.'/framework/views',
+    'APP_CONFIG_CACHE' => '/tmp/bootstrap/cache/config.php',
+    'APP_EVENTS_CACHE' => '/tmp/bootstrap/cache/events.php',
+    'APP_PACKAGES_CACHE' => '/tmp/bootstrap/cache/packages.php',
+    'APP_ROUTES_CACHE' => '/tmp/bootstrap/cache/routes.php',
+    'APP_SERVICES_CACHE' => '/tmp/bootstrap/cache/services.php',
+];
 
-require __DIR__.'/../public/index.php';
+foreach ($envVars as $key => $value) {
+    putenv("{$key}={$value}");
+    $_ENV[$key] = $value;
+    $_SERVER[$key] = $value;
+}
+
+try {
+    require __DIR__.'/../public/index.php';
+} catch (Throwable $e) {
+    http_response_code(500);
+    header('Content-Type: text/plain');
+    echo 'Fatal Server Error: '.$e->getMessage()."\n";
+    echo 'File: '.$e->getFile().':'.$e->getLine()."\n";
+    echo "\nStack trace:\n".$e->getTraceAsString();
+    exit(1);
+}

@@ -1,7 +1,7 @@
     <section class="workflow-section" id="alur">
       <div class="workflow-panel">
         <div class="workflow-bg-media" aria-hidden="true">
-          <img src="{{ asset('images/alur-kerja-gedung.jpg') }}" alt="Gedung Fasilitas SIGMA" loading="lazy">
+          <img src="{{ asset('images/image.avif') }}" alt="Gedung Fasilitas SIGMA" loading="lazy">
           <div class="workflow-bg-fade"></div>
         </div>
         <div class="workflow-heading">
