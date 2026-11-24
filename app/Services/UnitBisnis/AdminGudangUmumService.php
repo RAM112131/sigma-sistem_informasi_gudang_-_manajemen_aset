@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -100,81 +101,85 @@ final class AdminGudangUmumService
             ];
         }
 
-        $barangs = Barang::query()
-            ->with(['satuan:id,nama', 'kategori:id,nama'])
-            ->where('gudang_id', $gudang->getKey())
-            ->where('is_aktif', true)
-            ->get(['id', 'kode', 'nama', 'minimum_stok', 'satuan_id', 'kategori_id', 'harga_satuan']);
-        $stockTotals = $this->stokService->totals($barangs->modelKeys(), (int) $gudang->getKey());
-        $lowStockItems = [];
-        $minimumConfiguredSkuCount = 0;
-        $unpricedSkuCount = 0;
-        $estimatedInventoryValue = 0.0;
+        $cacheKey = "dashboard_admin_gu_{$gudang->getKey()}_{$chartStartDate}_{$chartEndDate}_{$chartPeriod}";
 
-        foreach ($barangs as $barang) {
-            $stock = max(
-                0.0,
-                (float) ($stockTotals['awal'][$barang->getKey()] ?? 0)
-                    + (float) ($stockTotals['masuk'][$barang->getKey()] ?? 0)
-                    - (float) ($stockTotals['keluar'][$barang->getKey()] ?? 0),
-            );
-            $minimumStock = (int) $barang->minimum_stok;
+        return Cache::remember($cacheKey, 30, function () use ($gudang, $chartStartDate, $chartEndDate, $chartPeriod): array {
+            $barangs = Barang::query()
+                ->with(['satuan:id,nama', 'kategori:id,nama'])
+                ->where('gudang_id', $gudang->getKey())
+                ->where('is_aktif', true)
+                ->get(['id', 'kode', 'nama', 'minimum_stok', 'satuan_id', 'kategori_id', 'harga_satuan']);
+            $stockTotals = $this->stokService->totals($barangs->modelKeys(), (int) $gudang->getKey());
+            $lowStockItems = [];
+            $minimumConfiguredSkuCount = 0;
+            $unpricedSkuCount = 0;
+            $estimatedInventoryValue = 0.0;
 
-            if ($minimumStock > 0) {
-                $minimumConfiguredSkuCount++;
+            foreach ($barangs as $barang) {
+                $stock = max(
+                    0.0,
+                    (float) ($stockTotals['awal'][$barang->getKey()] ?? 0)
+                        + (float) ($stockTotals['masuk'][$barang->getKey()] ?? 0)
+                        - (float) ($stockTotals['keluar'][$barang->getKey()] ?? 0),
+                );
+                $minimumStock = (int) $barang->minimum_stok;
+
+                if ($minimumStock > 0) {
+                    $minimumConfiguredSkuCount++;
+                }
+
+                if ($stock > 0 && (float) ($barang->harga_satuan ?? 0) <= 0) {
+                    $unpricedSkuCount++;
+                } else {
+                    $estimatedInventoryValue += $stock * (float) ($barang->harga_satuan ?? 0);
+                }
+
+                if ($minimumStock > 0 && $stock <= $minimumStock) {
+                    $lowStockItems[] = [
+                        'kode' => (string) $barang->kode,
+                        'nama' => (string) $barang->nama,
+                        'stok_aktual' => $stock,
+                        'minimum_stok' => $minimumStock,
+                        'satuan' => $barang->satuan?->nama,
+                    ];
+                }
             }
 
-            if ($stock > 0 && (float) ($barang->harga_satuan ?? 0) <= 0) {
-                $unpricedSkuCount++;
-            } else {
-                $estimatedInventoryValue += $stock * (float) ($barang->harga_satuan ?? 0);
-            }
+            usort($lowStockItems, static fn (array $first, array $second): int => ($first['stok_aktual'] <=> $second['stok_aktual'])
+                ?: ($second['minimum_stok'] <=> $first['minimum_stok'])
+                ?: strcmp($first['nama'], $second['nama']));
 
-            if ($minimumStock > 0 && $stock <= $minimumStock) {
-                $lowStockItems[] = [
-                    'kode' => (string) $barang->kode,
-                    'nama' => (string) $barang->nama,
-                    'stok_aktual' => $stock,
-                    'minimum_stok' => $minimumStock,
-                    'satuan' => $barang->satuan?->nama,
-                ];
-            }
-        }
+            $pendingTransferQuery = TransferBarang::query()
+                ->where('gudang_tujuan_id', $gudang->getKey())
+                ->where('status', 'dikirim');
 
-        usort($lowStockItems, static fn (array $first, array $second): int => ($first['stok_aktual'] <=> $second['stok_aktual'])
-            ?: ($second['minimum_stok'] <=> $first['minimum_stok'])
-            ?: strcmp($first['nama'], $second['nama']));
-
-        $pendingTransferQuery = TransferBarang::query()
-            ->where('gudang_tujuan_id', $gudang->getKey())
-            ->where('status', 'dikirim');
-
-        return [
-            'stats' => [
-                'pending_receipt_count' => (clone $pendingTransferQuery)->count(),
-                'low_stock_count' => count($lowStockItems),
-                'active_sku_count' => $barangs->count(),
-                'minimum_configured_sku_count' => $minimumConfiguredSkuCount,
-                'received_today_count' => TransferBarang::query()
-                    ->where('gudang_tujuan_id', $gudang->getKey())
-                    ->where('status', 'diterima')
-                    ->whereDate('diterima_at', today())
-                    ->count(),
-                'estimated_inventory_value' => $barangs->isNotEmpty() && $unpricedSkuCount === 0
-                    ? round($estimatedInventoryValue, 2)
-                    : null,
-                'unpriced_sku_count' => $unpricedSkuCount,
-            ],
-            'verificationQueue' => $this->getVerificationQueue($gudang),
-            'lowStockItems' => $lowStockItems,
-            'chartData' => $this->getDashboardChartData(
-                $gudang,
-                $chartStartDate,
-                $chartEndDate,
-                $chartPeriod,
-            ),
-            'verificationHistory' => $this->getDashboardVerificationHistory($gudang),
-        ];
+            return [
+                'stats' => [
+                    'pending_receipt_count' => (clone $pendingTransferQuery)->count(),
+                    'low_stock_count' => count($lowStockItems),
+                    'active_sku_count' => $barangs->count(),
+                    'minimum_configured_sku_count' => $minimumConfiguredSkuCount,
+                    'received_today_count' => TransferBarang::query()
+                        ->where('gudang_tujuan_id', $gudang->getKey())
+                        ->where('status', 'diterima')
+                        ->whereDate('diterima_at', today())
+                        ->count(),
+                    'estimated_inventory_value' => $barangs->isNotEmpty() && $unpricedSkuCount === 0
+                        ? round($estimatedInventoryValue, 2)
+                        : null,
+                    'unpriced_sku_count' => $unpricedSkuCount,
+                ],
+                'verificationQueue' => $this->getVerificationQueue($gudang),
+                'lowStockItems' => $lowStockItems,
+                'chartData' => $this->getDashboardChartData(
+                    $gudang,
+                    $chartStartDate,
+                    $chartEndDate,
+                    $chartPeriod,
+                ),
+                'verificationHistory' => $this->getDashboardVerificationHistory($gudang),
+            ];
+        });
     }
 
     /**

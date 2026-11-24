@@ -5,9 +5,8 @@
           <div class="workflow-bg-fade"></div>
         </div>
         <div class="workflow-heading">
-          <div class="section-kicker">Alur Kerja</div>
+          <div class="section-kicker">Alur Sistem</div>
           <h2>Alur Kerja SIGMA</h2>
-          <p class="section-description">Proses terpadu yang digunakan tim gudang setiap hari —<br class="desktop-break"> dari input fisik hingga verifikasi akhir oleh Admin GU.</p>
         </div>
         <div class="workflow-steps">
           <article class="workflow-step">

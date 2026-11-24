@@ -39,20 +39,13 @@ final class GudangStoreService
             );
         }
 
-        $warehouse = $requestedId
-            ? (clone $query)->whereKey((int) $requestedId)->first()
-            : null;
-
         if ($requestedId) {
+            $warehouse = (clone $query)->whereKey((int) $requestedId)->first();
             abort_unless($warehouse instanceof Gudang, 403, 'Anda belum ditugaskan ke Gudang Store aktif.');
         } elseif ($fallbackId && is_numeric($fallbackId)) {
-            $fallbackWarehouseType = Gudang::query()
-                ->whereKey((int) $fallbackId)
-                ->value('jenis');
-
-            if (in_array($fallbackWarehouseType, $warehouseTypes, true)) {
-                $warehouse = (clone $query)->whereKey((int) $fallbackId)->first();
-                abort_unless($warehouse instanceof Gudang, 403, 'Anda belum ditugaskan ke Gudang Store aktif.');
+            $fallbackWarehouse = (clone $query)->whereKey((int) $fallbackId)->first();
+            if ($fallbackWarehouse instanceof Gudang && in_array($fallbackWarehouse->jenis, $warehouseTypes, true)) {
+                $warehouse = $fallbackWarehouse;
             }
         }
 

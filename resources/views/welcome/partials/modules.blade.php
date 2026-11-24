@@ -4,7 +4,6 @@
           <div>
             <div class="section-kicker">Fitur Sistem</div>
             <h2>Modul yang Tersedia</h2>
-            <p class="section-description">Seluruh modul di bawah ini dirancang untuk operasional gudang dan pencatatan tanpa ribet, tanpa batas.</p>
           </div>
         </div>
 

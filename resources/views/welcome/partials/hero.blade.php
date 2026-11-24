@@ -70,34 +70,20 @@
       </div>
       <svg class="hero-bottom-wave" viewBox="0 0 1440 180" preserveAspectRatio="none" aria-hidden="true">
         <defs>
-          <linearGradient id="wave-dark-green" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#08796D"/>
-            <stop offset="100%" stop-color="#055B51"/>
-          </linearGradient>
-          <linearGradient id="wave-mint" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#D8ECE4" stop-opacity="0.8"/>
-            <stop offset="100%" stop-color="#B9DED2" stop-opacity="0.35"/>
-          </linearGradient>
-          <linearGradient id="wave-mint-ribbon" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#4CB8A6"/>
-            <stop offset="100%" stop-color="#B9DED2" stop-opacity="0.4"/>
+          <linearGradient id="modules-bg-match" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#fbfcf9"/>
+            <stop offset="100%" stop-color="#f6f8f4"/>
           </linearGradient>
         </defs>
 
-        <!-- 1. Soft mint background accent wave -->
-        <path d="M0,58 C140,78 240,110 360,110 C500,110 620,48 760,48 C900,48 1040,108 1180,108 C1280,108 1370,88 1440,68 V180 H0 Z" fill="url(#wave-mint)"/>
+        <!-- Pita 1: Hijau Mint (#B9DED2) - Bergelombang penuh, tebal di tepi dan dipertipis drastis (super tipis ~3.5px) di tengah -->
+        <path d="M 0,42 C 140,60 260,96 380,96 C 520,96 640,66 760,66 C 900,66 1020,98 1160,98 C 1260,98 1350,68 1440,52 L 1440,76 C 1350,90 1260,114 1160,114 C 1020,114 900,69.5 760,69.5 C 640,69.5 520,114 380,114 C 260,114 140,90 0,74 Z" fill="#B9DED2"/>
 
-        <!-- 2. Main foreground white wave that creates organic undulating curve -->
-        <path d="M0,78 C140,98 240,128 360,128 C500,128 620,64 760,64 C900,64 1040,126 1180,126 C1280,126 1370,105 1440,86 V180 H0 Z" fill="#FFFFFF"/>
+        <!-- Pita 2: Hijau Tua (#08796D) - Bergelombang tepat di bawah pita mint, dipertipis drastis (~3.5px) di tengah, lalu melebar dinamis di kanan -->
+        <path d="M 0,74 C 140,90 260,114 380,114 C 520,114 640,69.5 760,69.5 C 900,69.5 1020,114 1160,114 C 1260,114 1350,90 1440,76 L 1440,118 C 1350,128 1260,136 1160,136 C 1020,136 900,73 760,73 C 640,73 520,134 380,134 C 260,134 140,118 0,108 Z" fill="#08796D"/>
 
-        <!-- 3. Left secondary mint ribbon dipping onto the wave -->
-        <path d="M0,36 C130,68 250,108 420,122 C290,126 150,92 0,64 Z" fill="url(#wave-mint-ribbon)"/>
-
-        <!-- 4. Left dark emerald ribbon swooshing down organically -->
-        <path d="M0,8 C120,38 230,82 380,115 C250,108 130,68 0,36 Z" fill="url(#wave-dark-green)"/>
-
-        <!-- 5. Right dark green curved swoosh in bottom right under warehouse -->
-        <path d="M1020,72 C1140,68 1290,78 1440,90 V138 C1320,132 1180,112 1080,92 Z" fill="url(#wave-dark-green)"/>
+        <!-- Transisi Bawah Selaras (#fbfcf9 -> #f6f8f4) - Warna latar belakang section modul tanpa garis putih terpisah -->
+        <path d="M 0,108 C 140,118 260,134 380,134 C 520,134 640,73 760,73 C 900,73 1020,136 1160,136 C 1260,136 1350,128 1440,118 L 1440,180 L 0,180 Z" fill="url(#modules-bg-match)"/>
       </svg>
     </section>
 

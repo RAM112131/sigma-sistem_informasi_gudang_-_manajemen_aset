@@ -19,7 +19,14 @@
         $u = Auth::user();
         $isSuperAdmin =
             $u && method_exists($u, 'hasRole') && ($u->hasRole('Super Admin') || $u->hasRole('super_admin'));
-        $userGudangs = $u && !$isSuperAdmin ? $u->gudang()->orderBy('nama')->get() : collect();
+        $userGudangs = $u && !$isSuperAdmin
+            ? ($u->relationLoaded('gudang') ? $u->gudang->sortBy('nama') : $u->gudang()->orderBy('nama')->get())
+            : collect();
+
+        if ($u && !$u->relationLoaded('gudang') && $userGudangs->isNotEmpty()) {
+            $u->setRelation('gudang', $userGudangs);
+        }
+
         $selectedGudangId = request()->query('gudang_id', session('active_gudang_id'));
 
         if ($selectedGudangId && $userGudangs->contains('id', (int) $selectedGudangId)) {

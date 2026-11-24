@@ -39,10 +39,13 @@
     }
   });
 
-        document.addEventListener('submit', (event) => {
-          if (event.target instanceof HTMLFormElement && event.target.method.toUpperCase() !== 'GET') {
-            event.target.dataset.turbo = 'false';
-          }
-        }, true);
+  document.addEventListener('submit', (event) => {
+    if (event.target instanceof HTMLFormElement) {
+      const action = event.target.getAttribute('action') || '';
+      if (action.includes('/export') || action.includes('.pdf') || action.includes('.xlsx') || action.includes('-template')) {
+        event.target.dataset.turbo = 'false';
+      }
+    }
+  }, true);
 
         startTurbo();

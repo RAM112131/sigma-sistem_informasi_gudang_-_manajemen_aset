@@ -25,7 +25,10 @@ class CheckAccountStatus
             return $next($request);
         }
 
-        $user = User::withTrashed()->find($userId);
+        $currentUser = $request->user();
+        $user = ($currentUser !== null && $currentUser->getKey() == $userId)
+            ? $currentUser
+            : User::withTrashed()->find($userId);
 
         $errorMessage = match (true) {
             $user === null => 'Sesi dihentikan: Akun Anda telah dihapus secara permanen.',

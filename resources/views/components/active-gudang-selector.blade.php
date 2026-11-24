@@ -15,7 +15,13 @@
             'admin_gudang_store',
         ]);
 
-    $userGudangs = $user && !$isSuperAdmin ? $user->gudang()->orderBy('nama')->get() : collect();
+    $userGudangs = $user && !$isSuperAdmin
+        ? ($user->relationLoaded('gudang') ? $user->gudang->sortBy('nama') : $user->gudang()->orderBy('nama')->get())
+        : collect();
+
+    if ($user && !$user->relationLoaded('gudang') && $userGudangs->isNotEmpty()) {
+        $user->setRelation('gudang', $userGudangs);
+    }
     $selectedGudangId = request()->query('gudang_id', session('active_gudang_id', $userGudangs->first()?->id));
 
     if ($selectedGudangId && $userGudangs->contains('id', (int) $selectedGudangId)) {

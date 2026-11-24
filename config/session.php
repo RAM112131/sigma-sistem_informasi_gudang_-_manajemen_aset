@@ -2,6 +2,13 @@
 
 use Illuminate\Support\Str;
 
+$isLocalEnv = (
+    PHP_OS_FAMILY === 'Windows'
+    || in_array(strtolower(explode(':', $_SERVER['HTTP_HOST'] ?? '')[0]), ['sigma.com', 'sigma-.com', 'localhost', '127.0.0.1', 'sigma.test'], true)
+    || str_contains(strtolower($_SERVER['HTTP_HOST'] ?? ''), 'sigma')
+    || in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)
+);
+
 return [
 
     /*
@@ -18,7 +25,7 @@ return [
     |
     */
 
-    'driver' => env('SESSION_DRIVER', 'database'),
+    'driver' => $isLocalEnv ? 'file' : env('SESSION_DRIVER', 'database'),
 
     /*
     |--------------------------------------------------------------------------

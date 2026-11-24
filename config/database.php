@@ -3,6 +3,13 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+$isLocalEnv = (
+    PHP_OS_FAMILY === 'Windows'
+    || in_array(strtolower(explode(':', $_SERVER['HTTP_HOST'] ?? '')[0]), ['sigma.com', 'sigma-.com', 'localhost', '127.0.0.1', 'sigma.test'], true)
+    || str_contains(strtolower($_SERVER['HTTP_HOST'] ?? ''), 'sigma')
+    || in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)
+);
+
 return [
 
     /*
@@ -87,16 +94,30 @@ return [
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
+            'host' => ($isLocalEnv && (env('DB_HOST') === 'jqxw6u.h.filess.io' || ! env('DB_HOST')))
+                ? '127.0.0.1'
+                : env('DB_HOST', '127.0.0.1'),
+            'port' => ($isLocalEnv && (env('DB_HOST') === 'jqxw6u.h.filess.io' || ! env('DB_PORT') || env('DB_PORT') == '5434'))
+                ? '7878'
+                : env('DB_PORT', '5432'),
+            'database' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io' && (env('DB_DATABASE') === 'sigma_childrenit' || ! env('DB_DATABASE')))
+                ? 'db_wms'
+                : env('DB_DATABASE', 'db_wms'),
+            'username' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io')
+                ? 'postgres'
+                : env('DB_USERNAME', 'postgres'),
+            'password' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io')
+                ? ''
+                : env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => env('DB_SCHEMA', 'public'),
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'search_path' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io')
+                ? 'public'
+                : env('DB_SCHEMA', 'public'),
+            'sslmode' => ($isLocalEnv && (env('DB_HOST') === 'jqxw6u.h.filess.io' || env('DB_HOST') === '127.0.0.1' || ! env('DB_HOST')))
+                ? 'disable'
+                : env('DB_SSLMODE', 'prefer'),
         ],
 
         'sqlsrv' => [

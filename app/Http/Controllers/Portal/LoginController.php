@@ -47,17 +47,25 @@ final class LoginController extends Controller
         $user = Auth::user();
         if ($user) {
             session(['user_logged_in_id' => $user->id]);
+            $user->loadMissing('roles');
 
-            AuditLog::create([
-                'causer_type' => User::class,
-                'causer_id' => $user->id,
-                'action' => 'login',
-                'subject_type' => User::class,
-                'subject_id' => $user->id,
-                'description' => 'Login ke sistem',
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->header('User-Agent'),
-            ]);
+            // Defer audit log insertion to terminate event so redirect is immediate
+            app()->terminating(function () use ($user, $request): void {
+                try {
+                    AuditLog::create([
+                        'causer_type' => User::class,
+                        'causer_id' => $user->id,
+                        'action' => 'login',
+                        'subject_type' => User::class,
+                        'subject_id' => $user->id,
+                        'description' => 'Login ke sistem',
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->header('User-Agent'),
+                    ]);
+                } catch (\Throwable) {
+                    // Silently ignore audit log failures during termination
+                }
+            });
         }
         $userName = $user?->name ?? 'Pengguna';
 
@@ -102,16 +110,22 @@ final class LoginController extends Controller
         $request->session()->regenerateToken();
 
         if ($user) {
-            AuditLog::create([
-                'causer_type' => User::class,
-                'causer_id' => $user->id,
-                'action' => 'logout',
-                'subject_type' => User::class,
-                'subject_id' => $user->id,
-                'description' => 'Logout dari sistem',
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->header('User-Agent'),
-            ]);
+            app()->terminating(function () use ($user, $request): void {
+                try {
+                    AuditLog::create([
+                        'causer_type' => User::class,
+                        'causer_id' => $user->id,
+                        'action' => 'logout',
+                        'subject_type' => User::class,
+                        'subject_id' => $user->id,
+                        'description' => 'Logout dari sistem',
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->header('User-Agent'),
+                    ]);
+                } catch (\Throwable) {
+                    // Silently ignore audit log failures during termination
+                }
+            });
         }
 
         return redirect()->route('welcome')

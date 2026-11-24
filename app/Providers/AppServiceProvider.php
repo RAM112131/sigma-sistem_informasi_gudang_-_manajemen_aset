@@ -29,9 +29,8 @@ class AppServiceProvider extends ServiceProvider
         Vite::useStyleTagAttributes(['data-turbo-track' => 'reload']);
 
         // Paksa HTTPS hanya saat diakses lewat tunnel (Cloudflare/ngrok)
-        if (request()->header('X-Forwarded-Proto') === 'https') {
+        if (! $this->app->runningInConsole() && request()->header('X-Forwarded-Proto') === 'https') {
             URL::forceScheme('https');
         }
-
     }
 }
