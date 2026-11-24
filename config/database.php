@@ -98,6 +98,14 @@ return [
             'prefix_indexes' => true,
             'search_path' => env('DB_SCHEMA', 'public'),
             'sslmode' => env('DB_SSLMODE', 'disable'),
+            // Batasi pool koneksi agar tidak melebihi limit free tier DB
+            'options' => [
+                PDO::ATTR_PERSISTENT => env('DB_PERSISTENT', false),
+            ],
+            'pool' => [
+                'min' => 0,
+                'max' => env('DB_POOL_MAX', 3),
+            ],
         ],
 
         'sqlsrv' => [
