@@ -39,9 +39,21 @@ try {
     require __DIR__.'/../public/index.php';
 } catch (Throwable $e) {
     http_response_code(500);
-    header('Content-Type: text/plain');
+    header('Content-Type: text/plain; charset=UTF-8');
     echo 'Fatal Server Error: '.$e->getMessage()."\n";
+    echo 'Class: '.get_class($e)."\n";
     echo 'File: '.$e->getFile().':'.$e->getLine()."\n";
     echo "\nStack trace:\n".$e->getTraceAsString();
+
+    $prev = $e->getPrevious();
+    while ($prev) {
+        echo "\n\nCaused by:\n";
+        echo 'Class: '.get_class($prev)."\n";
+        echo 'Message: '.$prev->getMessage()."\n";
+        echo 'File: '.$prev->getFile().':'.$prev->getLine()."\n\n";
+        echo $prev->getTraceAsString();
+        $prev = $prev->getPrevious();
+    }
+
     exit(1);
 }
