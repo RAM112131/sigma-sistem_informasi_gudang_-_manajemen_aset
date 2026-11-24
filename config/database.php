@@ -18,7 +18,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'pgsql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -88,30 +88,16 @@ return [
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
-            'host' => ($isLocalEnv && (env('DB_HOST') === 'jqxw6u.h.filess.io' || ! env('DB_HOST')))
-                ? '127.0.0.1'
-                : env('DB_HOST', '127.0.0.1'),
-            'port' => ($isLocalEnv && (env('DB_HOST') === 'jqxw6u.h.filess.io' || ! env('DB_PORT') || env('DB_PORT') == '5434'))
-                ? '7878'
-                : env('DB_PORT', '5432'),
-            'database' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io' && (env('DB_DATABASE') === 'sigma_childrenit' || ! env('DB_DATABASE')))
-                ? 'db_wms'
-                : env('DB_DATABASE', 'db_wms'),
-            'username' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io')
-                ? 'postgres'
-                : env('DB_USERNAME', 'postgres'),
-            'password' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io')
-                ? ''
-                : env('DB_PASSWORD', ''),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'sigma_shellstoy'),
+            'username' => env('DB_USERNAME', 'postgres'),
+            'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => ($isLocalEnv && env('DB_HOST') === 'jqxw6u.h.filess.io')
-                ? 'public'
-                : env('DB_SCHEMA', 'public'),
-            'sslmode' => ($isLocalEnv && (env('DB_HOST') === 'jqxw6u.h.filess.io' || env('DB_HOST') === '127.0.0.1' || ! env('DB_HOST')))
-                ? 'disable'
-                : env('DB_SSLMODE', 'prefer'),
+            'search_path' => env('DB_SCHEMA', 'public'),
+            'sslmode' => env('DB_SSLMODE', 'disable'),
         ],
 
         'sqlsrv' => [
