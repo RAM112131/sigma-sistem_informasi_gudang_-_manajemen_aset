@@ -78,3 +78,30 @@ If search returns 0 results, proceed as a fresh session.
 | `ctx purge` | Call `ctx_purge` MCP tool with confirm: true. Warns before wiping knowledge base. |
 
 After /clear or /compact: knowledge base and session stats preserved. Use `ctx purge` to start fresh.
+
+## Repository guide
+
+### Build, tests, and formatting
+
+- `composer test` clears Laravel's config cache, then runs the PHPUnit suite; `php artisan test` runs the suite directly.
+- Run one PHP test file with `php artisan test tests/Feature/StoreStockImportTest.php`, or select a test with `php artisan test --filter=test_valid_receipt_persists_header_and_item`.
+- Tests use PostgreSQL and `phpunit.xml` targets the isolated `db_wms_test` database. Ensure that database is available; do not point test runs at the application database.
+- `vendor/bin/pint` formats PHP. `npm run format:blade` formats Blade templates.
+- `npm run build` runs the Vite production build; `npm run dev` starts the Vite development server.
+- The JavaScript test suite uses Node's built-in runner: `node --test tests/js/recording-gu-receipt-service.test.js`.
+
+### Architecture
+
+- SIGMA is a warehouse and inventory application. `routes/web.php` groups authenticated pages by area (`admin`, `store`, `unit-bisnis`, and `master`); `bootstrap/app.php` registers web middleware, account-status checks, and Spatie role/permission aliases.
+- The UI is primarily server-rendered Blade. Controllers are organized by area under `app/Http/Controllers`, with related business workflows in matching `app/Services` domains. Models and migrations describe warehouses, catalog items, and transaction documents; receipt/issue workflows commonly persist a document header and detail rows together.
+- Stock access is scoped to a `Gudang` as well as protected by roles or permissions. Preserve both checks when changing inventory, reports, or warehouse selection.
+- Excel imports/exports live in `app/Imports` and `app/Exports`; PDF output uses the existing export/report flows. Blade pages are organized under `resources/views`. Vite bundles `resources/css/app.css` and `resources/js/app.js`; frontend behavior uses Alpine.js and Turbo, with feature modules in `resources/js`.
+- Semantic search uses `EmbeddingGenerator`, queued `GenerateVectorEmbedding` jobs, and `SemanticVectorSearch`. PostgreSQL `pgvector` is optional and text search is the fallback. The configured vector size is 1536; changing it requires a compatible provider/model and database migration. Read the semantic-search section of `README.md` before changing indexing or provider behavior.
+
+### Codebase conventions
+
+- Keep changes within the existing domain structure and follow the nearest controller/service/view/test example. Controllers handle HTTP input and responses; multi-record business workflows belong in their domain service. Use transactions when a workflow writes related inventory records, and dispatch dependent work after commit where applicable.
+- Route names use area prefixes such as `store.` and `unit-bisnis.`; prefer these named routes in views and redirects. Authorization is expressed through the route middleware and permission checks used by each area.
+- User-facing labels, validation messages, and workflows are predominantly in Indonesian. Preserve the existing terminology and localization in the affected area.
+- Tests are PHPUnit tests under `tests/Feature` and `tests/Unit`; use the established fixtures and role/permission setup for the area being tested. The JavaScript tests are separate and run with Node's built-in test runner.
+- The root `AGENTS.md` contains shared Laravel project rules. Check package versions in `composer.json` and `package.json`, and use relevant skills under `.agents/skills` when working in a covered domain.

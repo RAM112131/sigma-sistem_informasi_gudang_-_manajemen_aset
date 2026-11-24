@@ -359,13 +359,12 @@
                                                         </svg>
                                                     </button>
                                                 </div>
-                                                <button type="submit" name="snapshot_barang_id"
-                                                    value="{{ $barang->getKey() }}"
-                                                    aria-label="Simpan hitungan fisik {{ $barang->nama }}"
-                                                    title="Simpan hitungan ini"
-                                                    data-save-row-id="{{ $barang->getKey() }}"
+                                                <button type="button"
+                                                    aria-label="Isi hitungan sesuai stok sistem {{ $barang->nama }}"
+                                                    title="Isi otomatis sesuai stok sistem"
                                                     @disabled($isApplied)
-                                                    :class="isSaved ? 'border-[#145C54] bg-[#145C54] text-white' :
+                                                    @click="quantity = systemQuantity.toString()"
+                                                    :class="quantity !== '' && Number(quantity) === systemQuantity ? 'border-[#145C54] bg-[#145C54] text-white' :
                                                         'border-[#D7DDD9] bg-white text-[#52615D] hover:bg-[#F2F5F3]'"
                                                     class="order-first inline-flex h-9 min-w-[72px] shrink-0 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#145C54]/30 disabled:cursor-not-allowed disabled:opacity-50 lg:order-3 lg:grid lg:h-8 lg:w-8 lg:min-w-0 lg:px-0">
                                                     <svg aria-hidden="true" class="h-4 w-4 shrink-0 lg:h-3.5 lg:w-3.5"
@@ -374,8 +373,8 @@
                                                         <path d="m5 12 4 4L19 6" />
                                                     </svg>
                                                     <span class="lg:hidden"
-                                                        x-text="{ kurang: 'Kurang', lebih: 'Lebih', sesuai: 'Sesuai', belum: 'Simpan' }[status]">
-                                                        {{ match ($item['status']) {'kurang' => 'Kurang','lebih' => 'Lebih','sesuai' => 'Sesuai',default => 'Simpan'} }}
+                                                        x-text="{ kurang: 'Kurang', lebih: 'Lebih', sesuai: 'Sesuai', belum: 'Sesuai' }[status]">
+                                                        {{ match ($item['status']) {'kurang' => 'Kurang','lebih' => 'Lebih','sesuai' => 'Sesuai',default => 'Sesuai'} }}
                                                     </span>
                                                 </button>
                                                 <button type="button"
