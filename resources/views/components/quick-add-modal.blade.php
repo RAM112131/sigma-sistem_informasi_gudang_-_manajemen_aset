@@ -197,25 +197,30 @@
                     deskripsi: this.deskripsiBarang
                 })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
                     this.$dispatch('item-selected', data.barang);
                     this.openQuickAdd = false;
                     this.resetForm();
                 } else {
-                    this.errorMessage = data.message || 'Gagal menambahkan barang.';
+                    const msg = data.errors
+                        ? Object.values(data.errors).flat().join(' ')
+                        : (data.message || 'Gagal menambahkan barang.');
+                    this.errorMessage = msg;
                 }
             })
             .catch(err => {
-                this.errorMessage = 'Terjadi kesalahan sistem.';
+                this.errorMessage = 'Terjadi kesalahan jaringan. Silakan coba lagi.';
                 console.error(err);
             })
             .finally(() => this.submitting = false);
     },
 
     submitKategori() {
-        if (!this.newKategoriNama) return;
+        if (!this.newKategoriNama || this.categoryCreating) return;
+        this.categoryCreating = true;
+        this.errorMessage = '';
         fetch('{{ url('/api/quick-add/kategori') }}', {
                 method: 'POST',
                 headers: {
@@ -224,20 +229,26 @@
                 },
                 body: JSON.stringify({ nama: this.newKategoriNama })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
                     this.kategoris.push(data.kategori);
                     this.kategoriId = data.kategori.id;
                     this.kategoriSearch = data.kategori.nama;
                     this.openAddKategori = false;
                     this.newKategoriNama = '';
+                } else {
+                    this.errorMessage = data.message || 'Gagal menyimpan kategori.';
                 }
-            });
+            })
+            .catch(() => { this.errorMessage = 'Terjadi kesalahan saat menyimpan kategori.'; })
+            .finally(() => this.categoryCreating = false);
     },
 
     submitSatuan() {
-        if (!this.newSatuanKode || !this.newSatuanNama) return;
+        if (!this.newSatuanKode || !this.newSatuanNama || this.satuanCreating) return;
+        this.satuanCreating = true;
+        this.errorMessage = '';
         fetch('{{ url('/api/quick-add/satuan') }}', {
                 method: 'POST',
                 headers: {
@@ -246,16 +257,21 @@
                 },
                 body: JSON.stringify({ kode: this.newSatuanKode, nama: this.newSatuanNama })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
                     this.satuans.push(data.satuan);
                     this.satuanId = data.satuan.id;
+                    this.satuanSearch = data.satuan.nama + ' (' + data.satuan.kode + ')';
                     this.openAddSatuan = false;
                     this.newSatuanKode = '';
                     this.newSatuanNama = '';
+                } else {
+                    this.errorMessage = data.message || 'Gagal menyimpan satuan.';
                 }
-            });
+            })
+            .catch(() => { this.errorMessage = 'Terjadi kesalahan saat menyimpan satuan.'; })
+            .finally(() => this.satuanCreating = false);
     },
 
     resetForm() {
@@ -350,7 +366,7 @@
 
                 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
                     <div class="form-group">
-                        <label class="form-label">Kode Perusahaan (opsional)</label>
+                        <label class="form-label">Kode Barang (opsional)</label>
                         <input type="text" class="form-control" x-model="kodeBarang" placeholder="STR-PVC-01"
                             style="text-transform: uppercase;">
                     </div>

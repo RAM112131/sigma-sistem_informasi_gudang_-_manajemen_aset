@@ -103,10 +103,10 @@ final readonly class PenerimaanStoreService
             ->get();
 
         $satuans = Satuan::where('is_aktif', true)->orderBy('nama')->get();
-        $kategoriList = KategoriBarang::where('gudang_id', $gudangStore->id)
-            ->where('is_aktif', true)
-            ->orderBy('nama')
-            ->get();
+        $kategoriList = KategoriBarang::where(function ($q) use ($gudangStore) {
+            $q->where('gudang_id', $gudangStore->id)
+                ->orWhereNull('gudang_id');
+        })->where('is_aktif', true)->orderBy('nama')->get();
 
         return [
             'penerimaans' => $penerimaans,

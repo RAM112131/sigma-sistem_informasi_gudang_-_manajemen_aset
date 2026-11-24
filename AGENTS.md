@@ -15,6 +15,16 @@ Before relying on a package's API, confirm its installed version:
 
 This project has domain-specific skills available in `**/skills/**`. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.
 
+## Skills Token Efficiency (Protokol Hemat Token Pembacaan Skill)
+
+- **Dilarang Dump Seluruh Isi Skill:** Jangan pernah membaca seluruh isi folder skill atau membaca file database mentah berukuran besar (misalnya file CSV atau file referensi ratusan KB di skill `ui-ux-pro-max`, `laravel-pro`, dll) langsung ke dalam konteks percakapan.
+- **Gunakan On-Demand / Targeted Query:**
+  1. Cukup baca file `SKILL.md` utama untuk memahami instruksi kerja.
+  2. Untuk skill yang memiliki script pencarian internal (seperti `ui-ux-pro-max`), AI WAJIB menjalankan CLI runner:
+     `python .ai/skills/ui-ux-pro-max/scripts/search.py "<query>" --domain <domain>`
+     Cara ini hanya mengembalikan 10-30 baris data relevan (~200 token), menghemat 95%+ token dibandingkan membaca file CSV mentah.
+  3. Jika perlu membaca file referensi spesifik (`references/*.md`), selalu batasi pembacaan menggunakan `StartLine` dan `EndLine` hanya pada bab yang dibutuhkan.
+
 ## Conventions
 
 - You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
@@ -154,5 +164,49 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
 - Rerun a test after each change to it.
 - Run `vendor/bin/phpunit` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
+
+=== fast-menu-revision rules ===
+
+# Zero-Scan Menu Revision Protocol & Instant Architecture Registry
+
+## 1. Zero-Scan Rule (Wajib)
+- Saat pengguna meminta revisi, perbaikan, atau penambahan fitur pada menu tertentu, DILARANG KERAS melakukan scanning seluruh file/folder dari awal (jangan jalankan `grep`, `dir /s`, atau `route:list` untuk mencari file).
+- AI WAJIB langsung melihat tabel arsitektur menu di bawah ini atau membaca `.ai/MENU_KNOWLEDGE_BASE.md`. Buka langsung file Controller dan Blade View target di turn pertama!
+
+## 2. Kontinuitas Analisa ("Agar Setiap Chat Nyambung")
+- Riwayat analisa dan catatan per menu tersimpan di file: `.ai/MENU_KNOWLEDGE_BASE.md`.
+- Setiap kali AI menyelesaikan analisa atau revisi penting pada sebuah menu, AI WAJIB memperbarui atau merujuk catatan pada `.ai/MENU_KNOWLEDGE_BASE.md` agar konteks per menu tidak pernah hilang di percakapan berikutnya.
+
+## 3. Peta Cepat Arsitektur Menu SIGMA
+
+| Menu UI | Route Name | Controller | File Blade View Utama | Model Terkait |
+|---|---|---|---|---|
+| **Verifikasi Pengeluaran & Penerimaan** | `unit-bisnis.admin-gu.rekonsiliasi-pengeluaran.index` | `UnitBisnis\AdminGudangUmum\RekonsiliasiPengeluaranController` | `resources/views/unit-bisnis/admin-gudang-umum/rekonsiliasi-pengeluaran/index.blade.php` | `PengeluaranUnit`, `PengeluaranUnitDetail` |
+| **Verifikasi Penerimaan** | `unit-bisnis.admin-gu.rekonsiliasi-penerimaan.index` | `UnitBisnis\AdminGudangUmum\RekonsiliasiPenerimaanController` | `resources/views/unit-bisnis/admin-gudang-umum/rekonsiliasi-penerimaan/index.blade.php` | `PenerimaanUnit`, `PenerimaanUnitDetail` |
+| **Stok Opname Bulanan** | `unit-bisnis.admin-gu.stok-opname.index` | `UnitBisnis\AdminGudangUmum\StokOpnameController` | `resources/views/unit-bisnis/admin-gudang-umum/stok-opname/index.blade.php` | `StokOpname`, `StokOpnameDetail` |
+| **Rekapitulasi Laporan Matriks** | `unit-bisnis.admin-gu.laporan.index` | `UnitBisnis\AdminGudangUmum\ReportController` | `resources/views/unit-bisnis/admin-gudang-umum/reports/index.blade.php` | `Barang`, `PengeluaranUnitDetail` |
+| **Permintaan Barang ke Store** | `unit-bisnis.admin-gu.permintaan.index` | `UnitBisnis\AdminGudangUmum\PermintaanBarangController` | `resources/views/unit-bisnis/admin-gudang-umum/permintaan/index.blade.php` | `PermintaanBarang`, `PermintaanBarangDetail` |
+| **Penerimaan Fisik Barang** | `unit-bisnis.recording-gu.penerimaan.index` | `UnitBisnis\RecordingGudangUmum\PenerimaanController` | `resources/views/unit-bisnis/recording-gudang-umum/penerimaan/index.blade.php` | `PenerimaanUnit`, `TransferBarang` |
+| **Pengeluaran & Pengembalian (BPB)** | `unit-bisnis.recording-gu.pengeluaran.index` | `UnitBisnis\RecordingGudangUmum\PengeluaranController` | `resources/views/unit-bisnis/recording-gudang-umum/pengeluaran/index.blade.php` | `PengeluaranUnit`, `PengembalianUnit`, `DivisiPeminta` |
+| **Stok Barang (Unit Bisnis)** | `unit-bisnis.stok.index` | `UnitBisnis\StokController` | `resources/views/unit-bisnis/stok/index.blade.php` | `Barang`, `MasterBarang`, `StokAwal` |
+| **Master Barang & Katalog** | `master.barang.index` | `MasterData\MasterBarangController` | `resources/views/master-data/index.blade.php` | `MasterBarang`, `KategoriBarang`, `Satuan` |
+| **Stok Gudang Store** | `store.stok.index` | `Store\StokStoreController` | `resources/views/store/stok/index.blade.php` | `Barang`, `MasterBarang`, `StokAwal` |
+| **Penerimaan Barang (Store)** | `store.penerimaan.index` | `Store\PenerimaanStoreController` | `resources/views/store/penerimaan/index.blade.php` | `PenerimaanBarangStore` |
+| **Pengeluaran Barang (Store)** | `store.pengeluaran.index` | `Store\PengeluaranStoreController` | `resources/views/store/pengeluaran/pemindahan.blade.php` | `TransferBarang`, `PermintaanBarang` |
+| **Permintaan Masuk (Store)** | `store.permintaan.index` | `Store\PengeluaranStoreController` | `resources/views/store/permintaan/index.blade.php` | `PermintaanBarang` |
+| **Laporan Gudang Store** | `store.laporan.index` | `Store\LaporanStoreController` | `resources/views/store/laporan/index.blade.php` | `Barang`, `TransferBarang` |
+| **Kelola User** | `admin.users.index` | `SuperAdmin\UserController` | `resources/views/super-admin/users/index.blade.php` | `User`, `Role`, `Gudang` |
+| **Role & Permission Matrix** | `admin.roles.index` | `SuperAdmin\RoleController` | `resources/views/super-admin/roles/index.blade.php` | `Role`, `Permission` |
+| **Master Lokasi Gudang** | `admin.gudang.index` | `SuperAdmin\GudangController` | `resources/views/super-admin/gudang/index.blade.php` | `Gudang` |
+| **Log Audit Aktivitas** | `admin.activity-log.index` | `SuperAdmin\ActivityLogController` | `resources/views/super-admin/activity-log/index.blade.php` | `AuditLog` |
+
+## 4. Strict Single-Scope & Impact Confirmation Protocol (Disiplin Ruang Lingkup)
+- **Fokus Tunggal (Target A Tetap A):** Ketika pengguna meminta untuk merevisi komponen/fitur/menu A, AI HANYA BOLEH memodifikasi file yang langsung terkait dengan A. DILARANG keras melakukan refactoring atau modifikasi sampingan pada fitur lain yang tidak diminta pengguna.
+- **Wajib Konfirmasi Sebelum Mengubah B (Dilarang Silent / Cascading Edit):** Jika modifikasi pada A ternyata menyebabkan efek domino, perubahan struktur data, atau beririsan dengan menu/fitur B:
+  1. AI DILARANG LANGSUNG MENGEDIT file B secara sepihak/diam-diam.
+  2. AI WAJIB berhenti dan meminta konfirmasi terlebih dahulu kepada pengguna dengan format jelas:
+     - **Penjelasan Dampak:** *"Perubahan pada [A] berpengaruh ke [B] karena [alasan teknis/dependensi alur]."*
+     - **Rekomendasi Opsi:** *"Apakah Anda ingin saya juga merevisi/menyesuaikan [B] sekarang, atau tetap fokus pada [A] saja?"*
+  3. Perubahan pada B HANYA BOLEH dilakukan setelah pengguna secara eksplisit menyetujuinya.
 
 </laravel-boost-guidelines>
