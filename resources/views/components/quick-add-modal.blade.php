@@ -127,7 +127,9 @@
     },
 
     openNewKategori() {
-        this.addKategoriFromSearch();
+        this.newKategoriNama = this.kategoriSearch.trim();
+        this.errorMessage = '';
+        this.openAddKategori = true;
     },
 
     async addKategoriFromSearch() {
@@ -199,7 +201,14 @@
         ) || null;
     },
 
-    async openNewSatuan() {
+    openNewSatuan() {
+        this.newSatuanKode = this.satuanSearch.trim();
+        this.updateQuickAddSatuanName();
+        this.errorMessage = '';
+        this.openAddSatuan = true;
+    },
+
+    async addSatuanFromSearch() {
         const nama = this.satuanSearch.trim();
         if (!nama || this.satuanCreating) return null;
 
@@ -274,7 +283,7 @@
                 if (matchedSat) {
                     this.selectSatuan(matchedSat);
                 } else {
-                    const createdSat = await this.openNewSatuan();
+                    const createdSat = await this.addSatuanFromSearch();
                     if (!createdSat) {
                         this.submitting = false;
                         return;
@@ -523,7 +532,7 @@
                                 </template>
                                 @if ($canCreateKategori)
                                     <button type="button"
-                                        x-show="kategoriSearch.trim() && !filteredKategoris().some(kat => kat.nama.toLowerCase() === kategoriSearch.trim().toLowerCase())"
+                                        x-show="kategoriSearch.trim() && !findMatchingKategori(kategoriSearch)"
                                         @click="openNewKategori(); kategoriDropdown = false"
                                         :disabled="categoryCreating"
                                         style="display: block; width: 100%; text-align: left; border: 0; background: rgba(20,92,84,.06); color: var(--brand-primary); padding: 10px 12px; cursor: pointer; font-weight: 700;">
@@ -561,7 +570,7 @@
                                 </template>
                                 @if (auth()->user()?->can('satuan.create') ?? false)
                                     <button type="button"
-                                        x-show="satuanSearch.trim() && !filteredSatuans().some(sat => sat.nama.toLowerCase() === satuanSearch.trim().toLowerCase() || sat.kode.toLowerCase() === satuanSearch.trim().toLowerCase())"
+                                        x-show="satuanSearch.trim() && !findMatchingSatuan(satuanSearch)"
                                         @click="openNewSatuan(); satuanDropdown = false" :disabled="satuanCreating"
                                         style="display: block; width: 100%; text-align: left; border: 0; background: rgba(20,92,84,.06); color: var(--brand-primary); padding: 10px 12px; cursor: pointer; font-weight: 700;">
                                         <span x-show="!satuanCreating">+ Tambah Satuan “<span
