@@ -433,4 +433,12 @@ Route::middleware('auth')->group(function () {
         Route::middleware('permission:kategori.create')->post('/kategori', [QuickAddController::class, 'storeKategori']);
         Route::middleware('permission:satuan.create')->post('/satuan', [QuickAddController::class, 'storeSatuan']);
     });
+
+    // Keep the paths used by existing Quick-Add forms working alongside the API paths.
+    Route::prefix('quick-add')->group(function () {
+        Route::get('/check-similarity', [QuickAddController::class, 'checkSimilarity']);
+        Route::middleware('permission:barang.create')->post('/barang', [QuickAddController::class, 'storeBarang']);
+        Route::middleware('permission:kategori.create')->post('/kategori', [QuickAddController::class, 'storeKategori']);
+        Route::middleware('permission:satuan.create')->post('/satuan', [QuickAddController::class, 'storeSatuan']);
+    });
 });

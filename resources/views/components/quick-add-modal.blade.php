@@ -49,6 +49,12 @@
     // Options
     kategoris: {{ json_encode($kategoriList ?? \App\Models\KategoriBarang::orderBy('nama')->get(['id', 'nama'])) }},
     satuans: {{ json_encode($satuanList ??\App\Models\Satuan::where('is_aktif', true)->orderBy('nama')->get(['id', 'kode', 'nama'])) }},
+    quickAddUrls: {
+        checkSimilarity: '/quick-add/check-similarity',
+        barang: '/quick-add/barang',
+        kategori: '/quick-add/kategori',
+        satuan: '/quick-add/satuan'
+    },
 
     init() {
         this.$watch('namaBarang', (val) => {
@@ -86,7 +92,7 @@
 
     checkSimilarity(name) {
         this.isSearchingSimilar = true;
-        fetch('/api/quick-add/check-similarity?nama=' + encodeURIComponent(name), {
+        fetch(this.quickAddUrls.checkSimilarity + '?nama=' + encodeURIComponent(name), {
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
@@ -147,7 +153,7 @@
         this.errorMessage = '';
 
         try {
-            const res = await fetch('/api/quick-add/kategori', {
+            const res = await fetch(this.quickAddUrls.kategori, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -224,7 +230,7 @@
         const kode = nama.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 20);
 
         try {
-            const res = await fetch('/api/quick-add/satuan', {
+            const res = await fetch(this.quickAddUrls.satuan, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -297,7 +303,7 @@
                 return;
             }
 
-            const res = await fetch('/api/quick-add/barang', {
+            const res = await fetch(this.quickAddUrls.barang, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -336,7 +342,7 @@
         this.categoryCreating = true;
         this.errorMessage = '';
         try {
-            const res = await fetch('/api/quick-add/kategori', {
+            const res = await fetch(this.quickAddUrls.kategori, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -371,7 +377,7 @@
         this.satuanCreating = true;
         this.errorMessage = '';
         try {
-            const res = await fetch('/api/quick-add/satuan', {
+            const res = await fetch(this.quickAddUrls.satuan, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

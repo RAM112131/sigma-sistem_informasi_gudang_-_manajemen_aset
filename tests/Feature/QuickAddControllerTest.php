@@ -55,6 +55,25 @@ final class QuickAddControllerTest extends TestCase
         $this->assertDatabaseCount('satuans', 0);
     }
 
+    public function test_quick_add_category_can_be_saved_through_its_post_endpoint(): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $user = User::factory()->create();
+        $user->givePermissionTo(Permission::findOrCreate('kategori.create', 'web'));
+
+        $response = $this->actingAs($user)->postJson('/quick-add/kategori', [
+            'nama' => 'Perlengkapan Store',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('kategori.nama', 'Perlengkapan Store');
+        $this->assertDatabaseHas('kategori_barangs', [
+            'nama' => 'Perlengkapan Store',
+            'is_aktif' => true,
+        ]);
+    }
+
     public function test_quick_add_creates_master_and_local_barang_for_the_active_warehouse(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();

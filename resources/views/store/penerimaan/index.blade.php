@@ -86,7 +86,7 @@
             'receiptSupplierPrefixes' => $receiptSupplierPrefixes,
             'receiptNextSequence' => (int) $receiptNextSequence,
             'receiptUsedTokens' => array_values($receiptUsedTokens),
-            'quickAddSatuanUrl' => url('/api/quick-add/satuan'),
+            'quickAddSatuanUrl' => '/quick-add/satuan',
             'csrfToken' => csrf_token(),
         ];
     @endphp
