@@ -375,8 +375,9 @@ final class MasterBarangService
         int $minimumStock = 0,
         ?int $kategoriId = null,
         ?int $satuanId = null,
+        bool $returnExisting = false,
     ): Barang {
-        return DB::transaction(function () use ($masterBarang, $gudang, $localCode, $minimumStock, $kategoriId, $satuanId): Barang {
+        return DB::transaction(function () use ($masterBarang, $gudang, $localCode, $minimumStock, $kategoriId, $satuanId, $returnExisting): Barang {
             if (! $masterBarang->is_aktif || ! $gudang->is_aktif) {
                 throw ValidationException::withMessages([
                     'gudang_id' => 'Master barang dan gudang harus berstatus aktif untuk didaftarkan.',
@@ -389,6 +390,16 @@ final class MasterBarangService
                 ->first();
 
             if ($existingBarang && ! $existingBarang->trashed()) {
+                if ($returnExisting && $existingBarang->is_aktif) {
+                    return $existingBarang;
+                }
+
+                if ($returnExisting) {
+                    throw ValidationException::withMessages([
+                        'kode' => "Barang '{$existingBarang->nama}' telah terdaftar tetapi dinonaktifkan di {$gudang->nama}.",
+                    ]);
+                }
+
                 throw ValidationException::withMessages([
                     'gudang_id' => 'Barang ini sudah terdaftar di gudang tersebut.',
                 ]);
@@ -450,6 +461,8 @@ final class MasterBarangService
         int $categoryId,
         int $unitId,
         ?string $description = null,
+        ?string $categoryName = null,
+        ?string $unitCode = null,
     ): MasterBarang {
         $masterBarang = MasterBarang::query()->where('kode', strtoupper(trim($companyCode)))->first();
 
@@ -461,8 +474,8 @@ final class MasterBarangService
             }
 
             $masterBarang->loadMissing(['kategori:id,nama', 'satuan:id,kode']);
-            $categoryName = KategoriBarang::query()->whereKey($categoryId)->value('nama');
-            $unitCode = Satuan::query()->whereKey($unitId)->value('kode');
+            $categoryName ??= KategoriBarang::query()->whereKey($categoryId)->value('nama');
+            $unitCode ??= Satuan::query()->whereKey($unitId)->value('kode');
 
             if (
                 ($masterBarang->kategori && mb_strtolower($masterBarang->kategori->nama) !== mb_strtolower((string) $categoryName))

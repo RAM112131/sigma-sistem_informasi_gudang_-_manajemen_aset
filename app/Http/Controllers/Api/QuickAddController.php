@@ -15,8 +15,8 @@ use App\Services\MasterData\SatuanService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 final class QuickAddController extends Controller
@@ -60,11 +60,50 @@ final class QuickAddController extends Controller
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
             'kode' => ['nullable', 'string', 'max:50'],
-            'kategori_id' => ['required', Rule::exists('kategori_barangs', 'id')->where('is_aktif', true)],
-            'satuan_id' => ['required', Rule::exists('satuans', 'id')->where('is_aktif', true)],
+            'kategori_id' => ['required', 'integer'],
+            'satuan_id' => ['required', 'integer'],
             'minimum_stok' => ['nullable', 'integer', 'min:0'],
             'deskripsi' => ['nullable', 'string'],
         ]);
+
+        $references = DB::table('kategori_barangs as kategori')
+            ->crossJoin('satuans as satuan')
+            ->where('kategori.id', (int) $validated['kategori_id'])
+            ->where('kategori.is_aktif', true)
+            ->whereNull('kategori.deleted_at')
+            ->where('satuan.id', (int) $validated['satuan_id'])
+            ->where('satuan.is_aktif', true)
+            ->whereNull('satuan.deleted_at')
+            ->select([
+                'kategori.id as kategori_id',
+                'kategori.nama as kategori_nama',
+                'satuan.id as satuan_id',
+                'satuan.kode as satuan_kode',
+                'satuan.nama as satuan_nama',
+            ])
+            ->first();
+
+        if (! $references) {
+            $errors = [];
+
+            if (! DB::table('kategori_barangs')
+                ->where('id', (int) $validated['kategori_id'])
+                ->where('is_aktif', true)
+                ->whereNull('deleted_at')
+                ->exists()) {
+                $errors['kategori_id'] = 'Kategori tidak ditemukan atau tidak aktif.';
+            }
+
+            if (! DB::table('satuans')
+                ->where('id', (int) $validated['satuan_id'])
+                ->where('is_aktif', true)
+                ->whereNull('deleted_at')
+                ->exists()) {
+                $errors['satuan_id'] = 'Satuan tidak ditemukan atau tidak aktif.';
+            }
+
+            throw ValidationException::withMessages($errors);
+        }
 
         $gudang = $this->activeWarehouse($request);
         $companyCode = strtoupper(trim($validated['kode'] ?? ''));
@@ -75,28 +114,39 @@ final class QuickAddController extends Controller
         $masterBarang = $masterBarangService->findOrCreateForLocalCode(
             $companyCode,
             trim($validated['nama']),
-            (int) $validated['kategori_id'],
-            (int) $validated['satuan_id'],
+            (int) $references->kategori_id,
+            (int) $references->satuan_id,
             $validated['deskripsi'] ?? null,
+            $references->kategori_nama,
+            $references->satuan_kode,
         );
 
-        $barang = $masterBarang->barangs()->where('gudang_id', $gudang->id)->first();
-        if ($barang && ! $barang->is_aktif) {
-            throw ValidationException::withMessages([
-                'kode' => "Barang '{$barang->nama}' telah terdaftar tetapi dinonaktifkan di {$gudang->nama}.",
-            ]);
-        }
+        $barang = $masterBarangService->registerInWarehouse(
+            $masterBarang,
+            $gudang,
+            null,
+            (int) ($validated['minimum_stok'] ?? 10),
+            returnExisting: true,
+        );
 
-        if (! $barang) {
-            $barang = $masterBarangService->registerInWarehouse(
-                $masterBarang,
-                $gudang,
-                null,
-                (int) ($validated['minimum_stok'] ?? 10),
-            );
+        $kategoriNama = $references->kategori_nama;
+        $satuanNama = $references->satuan_nama;
+        if (
+            (int) $barang->kategori_id !== (int) $references->kategori_id
+            || (int) $barang->satuan_id !== (int) $references->satuan_id
+        ) {
+            $itemReferences = DB::table('kategori_barangs as kategori')
+                ->crossJoin('satuans as satuan')
+                ->where('kategori.id', $barang->kategori_id)
+                ->where('satuan.id', $barang->satuan_id)
+                ->select([
+                    'kategori.nama as kategori_nama',
+                    'satuan.nama as satuan_nama',
+                ])
+                ->first();
+            $kategoriNama = $itemReferences?->kategori_nama;
+            $satuanNama = $itemReferences?->satuan_nama;
         }
-
-        $barang->load(['kategori', 'satuan']);
 
         return response()->json([
             'success' => true,
@@ -106,9 +156,9 @@ final class QuickAddController extends Controller
                 'kode' => $barang->kode,
                 'nama' => $barang->nama,
                 'kategori_id' => $barang->kategori_id,
-                'kategori_nama' => $barang->kategori?->nama,
+                'kategori_nama' => $kategoriNama,
                 'satuan_id' => $barang->satuan_id,
-                'satuan_nama' => $barang->satuan?->nama,
+                'satuan_nama' => $satuanNama,
                 'minimum_stok' => $barang->minimum_stok,
             ],
         ]);
