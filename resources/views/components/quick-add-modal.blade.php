@@ -41,6 +41,8 @@
     hasSimilar: false,
     ignoreWarning: false,
     isSearchingSimilar: false,
+    similarityCheckTimer: null,
+    similarityCheckController: null,
     submitting: false,
     categoryCreating: false,
     satuanCreating: false,
@@ -57,14 +59,7 @@
     },
 
     init() {
-        this.$watch('namaBarang', (val) => {
-            if (val.trim().length >= 3) {
-                this.checkSimilarity(val);
-            } else {
-                this.similarItems = [];
-                this.hasSimilar = false;
-            }
-        });
+        this.$watch('namaBarang', (val) => this.checkSimilarity(val));
         this.$watch('newSatuanKode', () => this.updateQuickAddSatuanName());
     },
 
@@ -90,23 +85,51 @@
         return data?.message || fallback;
     },
 
+    cancelSimilarityCheck() {
+        clearTimeout(this.similarityCheckTimer);
+        this.similarityCheckTimer = null;
+        this.similarityCheckController?.abort();
+        this.similarityCheckController = null;
+        this.isSearchingSimilar = false;
+    },
+
     checkSimilarity(name) {
-        this.isSearchingSimilar = true;
-        fetch(this.quickAddUrls.checkSimilarity + '?nama=' + encodeURIComponent(name), {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(res => this.parseJsonResponse(res))
-            .then(({ ok, data }) => {
-                if (ok) {
+        this.cancelSimilarityCheck();
+        const normalizedName = String(name || '').trim();
+        if (normalizedName.length < 3) {
+            this.similarItems = [];
+            this.hasSimilar = false;
+            return;
+        }
+
+        this.similarityCheckTimer = setTimeout(async () => {
+            const controller = new AbortController();
+            this.similarityCheckController = controller;
+            this.isSearchingSimilar = true;
+
+            try {
+                const res = await fetch(this.quickAddUrls.checkSimilarity + '?nama=' + encodeURIComponent(
+                    normalizedName), {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    signal: controller.signal
+                });
+                const { ok, data } = await this.parseJsonResponse(res);
+                if (ok && this.similarityCheckController === controller) {
                     this.hasSimilar = Boolean(data.has_similar);
                     this.similarItems = data.similar_items || [];
                 }
-            })
-            .catch(err => console.error(err))
-            .finally(() => this.isSearchingSimilar = false);
+            } catch (error) {
+                if (error.name !== 'AbortError') console.error(error);
+            } finally {
+                if (this.similarityCheckController === controller) {
+                    this.isSearchingSimilar = false;
+                    this.similarityCheckController = null;
+                }
+            }
+        }, 350);
     },
 
     selectExisting(item) {
@@ -267,6 +290,7 @@
             return;
         }
 
+        this.cancelSimilarityCheck();
         this.submitting = true;
         this.errorMessage = '';
 
@@ -395,6 +419,7 @@
     },
 
     resetForm() {
+        this.cancelSimilarityCheck();
         this.namaBarang = '';
         this.kodeBarang = '';
         this.kategoriId = '';
