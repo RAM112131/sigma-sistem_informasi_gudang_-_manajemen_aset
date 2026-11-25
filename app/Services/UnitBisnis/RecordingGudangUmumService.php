@@ -106,7 +106,7 @@ final class RecordingGudangUmumService
         $todayCount = $activeGudang !== null
             ? PenerimaanUnit::query()
                 ->where('gudang_id', $activeGudang->getKey())
-                ->whereDate('tanggal_terima', today())
+                ->where('tanggal_terima', today()->toDateString())
                 ->count() + 1
             : 1;
         $nextDirectReceiptNumber = sprintf('RCV-%s-%s001-%04d', $unitPrefix, $dateNum, $todayCount);
@@ -746,7 +746,7 @@ final class RecordingGudangUmumService
             ]);
         }
 
-        $transaction = DB::transaction(function () use ($activeGudang, $barangs, $validated, $user): PengeluaranUnit {
+        $transaction = DB::transaction(function () use ($activeGudang, $barangs, $barangIds, $validated, $user): PengeluaranUnit {
             $lockedGudang = Gudang::query()
                 ->whereKey($activeGudang->getKey())
                 ->lockForUpdate()
@@ -760,7 +760,7 @@ final class RecordingGudangUmumService
 
             $transaction = PengeluaranUnit::query()
                 ->where('gudang_id', $lockedGudang->getKey())
-                ->whereDate('tanggal', $validated['tanggal'])
+            ->where('tanggal', $validated['tanggal'])
                 ->whereRaw('LOWER(bagian_peminta) = ?', [$normalizedDepartment])
                 ->where('status_verifikasi', 'menunggu_verifikasi')
                 ->lockForUpdate()
@@ -786,11 +786,15 @@ final class RecordingGudangUmumService
                 );
                 $sequence = PengeluaranUnit::query()
                     ->where('gudang_id', $lockedGudang->getKey())
-                    ->whereDate('tanggal', $tanggal)
+                    ->where('tanggal', $tanggal)
                     ->count() + 1;
+                $usedNumbers = PengeluaranUnit::query()
+                    ->where('nomor_bpb', 'like', $nomorPrefix.'%')
+                    ->pluck('nomor_bpb')
+                    ->flip();
                 $nomorBpb = sprintf('%s%04d', $nomorPrefix, $sequence);
 
-                while (PengeluaranUnit::query()->where('nomor_bpb', $nomorBpb)->exists()) {
+                while (isset($usedNumbers[$nomorBpb])) {
                     $sequence++;
                     $nomorBpb = sprintf('%s%04d', $nomorPrefix, $sequence);
                 }
@@ -816,6 +820,16 @@ final class RecordingGudangUmumService
                 ]);
             }
 
+            $detailsByItemAndUnit = [];
+            foreach ($transaction->details()
+                ->whereIn('barang_id', $barangIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get() as $existingDetail) {
+                $key = $existingDetail->barang_id.'|'.$existingDetail->satuan;
+                $detailsByItemAndUnit[$key] ??= $existingDetail;
+            }
+
             foreach ($validated['items'] as $item) {
                 $barang = $barangs->get((int) $item['barang_id']);
                 if (! $barang instanceof Barang) {
@@ -825,11 +839,8 @@ final class RecordingGudangUmumService
                 }
 
                 $satuan = $barang->satuan?->nama ?? 'unit';
-                $detail = $transaction->details()
-                    ->where('barang_id', $barang->getKey())
-                    ->where('satuan', $satuan)
-                    ->lockForUpdate()
-                    ->first();
+                $detailKey = $barang->getKey().'|'.$satuan;
+                $detail = $detailsByItemAndUnit[$detailKey] ?? null;
                 $quantity = round((float) $item['qty'], 3);
 
                 if ($detail instanceof PengeluaranUnitDetail) {
@@ -856,7 +867,7 @@ final class RecordingGudangUmumService
 
                 $hpp = (float) $barang->harga_satuan;
 
-                $transaction->details()->create([
+                $detail = $transaction->details()->create([
                     'barang_id' => $barang->getKey(),
                     'kode_barang' => $barang->kode,
                     'nama_barang' => $barang->nama,
@@ -870,6 +881,7 @@ final class RecordingGudangUmumService
                     'subtotal_nilai' => round($quantity * $hpp, 2),
                     'catatan' => $item['catatan'] ?? null,
                 ]);
+                $detailsByItemAndUnit[$detailKey] = $detail;
             }
 
             return $transaction->load(['details', 'pencatat']);

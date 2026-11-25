@@ -373,6 +373,81 @@ final class AdminGUMonthlyReportTest extends TestCase
             });
     }
 
+    public function test_discrepancy_rows_are_paginated_without_truncating_totals(): void
+    {
+        [$admin, $warehouse, $existingItem] = $this->makeReportContext();
+        $opname = StokOpname::query()->create([
+            'gudang_id' => $warehouse->getKey(),
+            'periode' => '2026-11-01',
+            'tanggal_efektif' => '2026-11-30',
+            'status' => 'diterapkan',
+        ]);
+
+        for ($number = 1; $number <= 51; $number++) {
+            $item = $number === 1
+                ? $existingItem
+                : Barang::query()->create([
+                    'gudang_id' => $warehouse->getKey(),
+                    'kode' => sprintf('SKU-DIFF-%03d', $number),
+                    'nama' => 'Barang Selisih '.$number,
+                    'minimum_stok' => 0,
+                    'harga_satuan' => 10,
+                    'is_aktif' => true,
+                ]);
+            StokOpnameDetail::query()->create([
+                'stok_opname_id' => $opname->getKey(),
+                'barang_id' => $item->getKey(),
+                'kode_barang' => $item->kode,
+                'nama_barang' => $item->nama,
+                'satuan' => 'Pcs',
+                'qty_sistem' => 0,
+                'qty_sistem_at' => '2026-11-17 10:00:00',
+                'qty_fisik' => 1,
+                'harga_satuan' => 10,
+                'catatan' => 'Selisih uji',
+            ]);
+
+            $receipt = PenerimaanUnit::query()->create([
+                'nomor_rcv' => sprintf('RCV-DAMAGED-%03d', $number),
+                'gudang_id' => $warehouse->getKey(),
+                'nama_supplier' => 'PT Pemasok',
+                'tanggal_terima' => '2026-11-10',
+                'waktu_terima' => '09:00',
+                'status_verifikasi' => 'terverifikasi',
+                'diverifikasi_at' => '2026-11-10 10:00:00',
+            ]);
+            PenerimaanUnitDetail::query()->create([
+                'penerimaan_unit_id' => $receipt->getKey(),
+                'barang_id' => $item->getKey(),
+                'kode_barang' => $item->kode,
+                'nama_barang' => $item->nama,
+                'satuan' => 'Pcs',
+                'qty_diterima' => 1,
+                'qty_rusak' => 1,
+                'harga_beli' => 10,
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('unit-bisnis.admin-gu.laporan.index', [
+                'period' => '2026-11',
+                'tab' => 'selisih',
+            ]))
+            ->assertOk()
+            ->assertViewHas('report', static function (array $report): bool {
+                self::assertSame(50, $report['opname_items']->perPage());
+                self::assertSame(51, $report['opname_items']->total());
+                self::assertCount(50, $report['opname_items']);
+                self::assertSame(50, $report['damaged_items']->perPage());
+                self::assertSame(51, $report['damaged_items']->total());
+                self::assertCount(50, $report['damaged_items']);
+                self::assertSame(51.0, $report['totals']['difference_qty']);
+                self::assertSame(51.0, $report['totals']['damaged_qty']);
+
+                return true;
+            });
+    }
+
     public function test_all_report_tabs_render_successfully(): void
     {
         [$admin] = $this->makeReportContext();

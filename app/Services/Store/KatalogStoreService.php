@@ -54,8 +54,13 @@ final readonly class KatalogStoreService
 
         return [
             'barangs' => $query->orderBy('nama')->paginate($perPage)->withQueryString(),
-            'kategoriList' => KategoriBarang::orderBy('nama')->get(),
-            'satuanList' => Satuan::where('is_aktif', true)->orderBy('nama')->get(),
+            'kategoriList' => KategoriBarang::query()
+                ->orderBy('nama')
+                ->get(['id', 'nama']),
+            'satuanList' => Satuan::query()
+                ->where('is_aktif', true)
+                ->orderBy('nama')
+                ->get(['id', 'kode', 'nama']),
             'auditLogs' => AuditLog::where('subject_type', Barang::class)
                 ->orWhere('action', 'LIKE', '%BARANG%')
                 ->orderByDesc('created_at')

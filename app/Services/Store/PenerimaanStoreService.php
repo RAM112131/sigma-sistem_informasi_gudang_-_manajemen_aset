@@ -9,7 +9,6 @@ use App\Models\Barang;
 use App\Models\Gudang;
 use App\Models\KategoriBarang;
 use App\Models\PenerimaanBarangStore;
-use App\Models\PenerimaanBarangStoreDetail;
 use App\Models\Satuan;
 use App\Services\SemanticVectorSearch;
 use Carbon\Carbon;
@@ -57,10 +56,13 @@ final readonly class PenerimaanStoreService
         }
 
         $now = now();
+        $todayStart = $today->copy()->startOfDay();
+        $tomorrowStart = $todayStart->copy()->addDay();
         $nomorRcvDatePrefix = $this->receiptNumberDatePrefix($now);
         $receiptNumberOptions = $this->receiptNumberOptions(
             PenerimaanBarangStore::query()
-                ->whereDate('tanggal_diterima', $today->toDateString())
+                ->where('tanggal_diterima', '>=', $todayStart)
+                ->where('tanggal_diterima', '<', $tomorrowStart)
                 ->get(['nomor_penerimaan', 'sumber_supplier'])
                 ->all(),
             $now,
@@ -74,15 +76,27 @@ final readonly class PenerimaanStoreService
         }
 
         $receiptQuery
-            ->whereDate('tanggal_diterima', '>=', $dateFrom)
-            ->whereDate('tanggal_diterima', '<=', $dateTo);
+            ->where('tanggal_diterima', '>=', Carbon::parse($dateFrom)->startOfDay())
+            ->where('tanggal_diterima', '<', Carbon::parse($dateTo)->addDay()->startOfDay());
 
         if ($search !== '') {
             $this->semanticSearch->apply($receiptQuery, 'penerimaan_barang_stores', $search, 'search');
         }
 
         $penerimaans = $receiptQuery
-            ->with(['details.barang.kategori', 'details.satuan', 'barang.kategori', 'satuan', 'penerima', 'gudang'])
+            ->select([
+                'id',
+                'nomor_penerimaan',
+                'diterima_oleh',
+                'tanggal_diterima',
+                'sumber_supplier',
+                'qty_diterima',
+            ])
+            ->with([
+                'details:id,penerimaan_barang_store_id,barang_id,qty_diterima,qty_rusak,qty_kurang,qty_lebih,harga_satuan,total_harga',
+                'details.barang:id,nama',
+                'penerima:id,name',
+            ])
             ->orderByDesc('tanggal_diterima')
             ->orderByDesc('id')
             ->paginate($perPage)
@@ -96,17 +110,25 @@ final readonly class PenerimaanStoreService
             ->orderBy('sumber_supplier')
             ->pluck('sumber_supplier');
 
-        $barangs = Barang::with(['kategori', 'satuan'])
+        $barangs = Barang::query()
+            ->with(['kategori:id,nama', 'satuan:id,nama'])
             ->where('gudang_id', $gudangStore->id)
             ->where('is_aktif', true)
             ->orderBy('nama')
-            ->get();
+            ->get(['id', 'kode', 'nama', 'kategori_id', 'satuan_id']);
 
-        $satuans = Satuan::where('is_aktif', true)->orderBy('nama')->get();
-        $kategoriList = KategoriBarang::where(function ($q) use ($gudangStore) {
-            $q->where('gudang_id', $gudangStore->id)
-                ->orWhereNull('gudang_id');
-        })->where('is_aktif', true)->orderBy('nama')->get();
+        $satuans = Satuan::query()
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'kode', 'nama']);
+        $kategoriList = KategoriBarang::query()
+            ->where(static function ($query) use ($gudangStore): void {
+                $query->where('gudang_id', $gudangStore->id)
+                    ->orWhereNull('gudang_id');
+            })
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'nama']);
 
         return [
             'penerimaans' => $penerimaans,
@@ -151,12 +173,15 @@ final readonly class PenerimaanStoreService
 
             $date = Carbon::parse($validated['tanggal_diterima']);
             $existingReceipts = PenerimaanBarangStore::query()
-                ->whereDate('tanggal_diterima', $date->toDateString())
+                ->where('tanggal_diterima', '>=', $date->copy()->startOfDay())
+                ->where('tanggal_diterima', '<', $date->copy()->addDay()->startOfDay())
                 ->get(['nomor_penerimaan', 'sumber_supplier']);
 
             $prefixesBySupplier = $this->validateReceiptPrefixesForGroups($sourceGroups, $existingReceipts->all(), $date);
             $sequence = $this->receiptNumberOptions($existingReceipts->all(), $date)['nextSequence'];
             $nomorPenerimaanList = [];
+            $detailRows = [];
+            $timestamp = now();
 
             foreach ($sourceGroups as $sourceGroup) {
                 $items = $sourceGroup['items'];
@@ -194,7 +219,7 @@ final readonly class PenerimaanStoreService
                 ]);
 
                 foreach ($items as $item) {
-                    PenerimaanBarangStoreDetail::create([
+                    $detailRows[] = [
                         'penerimaan_barang_store_id' => $penerimaanHeader->id,
                         'barang_id' => $item['barang_id'],
                         'qty_diterima' => (int) $item['qty_diterima'],
@@ -207,13 +232,19 @@ final readonly class PenerimaanStoreService
                         'harga_satuan' => (float) ($item['harga_satuan'] ?? 0),
                         'total_harga' => (float) ($item['qty_diterima'] ?? 0) * (float) ($item['harga_satuan'] ?? 0),
                         'catatan' => $item['catatan'] ?? null,
-                    ]);
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ];
                 }
 
                 GenerateVectorEmbedding::dispatch($penerimaanHeader, $penerimaanHeader->getSemanticText())
                     ->afterCommit();
 
                 $nomorPenerimaanList[] = $nomorPenerimaan;
+            }
+
+            foreach (array_chunk($detailRows, 500) as $detailChunk) {
+                DB::table('penerimaan_barang_store_details')->insert($detailChunk);
             }
 
             return [

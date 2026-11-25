@@ -53,8 +53,8 @@
         <div class="hero-visual">
           <div class="hero-image-stage" role="group" aria-roledescription="carousel" aria-label="Foto suasana operasional gudang SIGMA" aria-live="off">
             <img class="warehouse-hero-image is-active" src="{{ asset('images/image2.avif') }}" alt="Area gudang dengan rak, palet, dan forklift" width="1024" height="572" loading="eager" fetchpriority="high" decoding="async">
-            <img class="warehouse-hero-image" src="{{ asset('images/image1.avif') }}" alt="Tim memproses produk di area produksi yang tertata" width="1024" height="559" loading="eager" fetchpriority="low" decoding="async" aria-hidden="true">
-            <img class="warehouse-hero-image" src="{{ asset('images/image3.avif') }}" alt="Petugas mencatat persediaan gudang menggunakan tablet" width="1024" height="559" loading="eager" fetchpriority="low" decoding="async" aria-hidden="true">
+            <img class="warehouse-hero-image" data-src="{{ asset('images/image1.avif') }}" alt="Tim memproses produk di area produksi yang tertata" width="1024" height="559" decoding="async" aria-hidden="true">
+            <img class="warehouse-hero-image" data-src="{{ asset('images/image3.avif') }}" alt="Petugas mencatat persediaan gudang menggunakan tablet" width="1024" height="559" decoding="async" aria-hidden="true">
             <div class="hero-dots" aria-hidden="true"><span class="is-active"></span><span></span><span></span></div>
           </div>
 

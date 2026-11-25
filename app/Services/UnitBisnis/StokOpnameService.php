@@ -85,7 +85,7 @@ final class StokOpnameService
 
         $opname = StokOpname::query()
             ->where('gudang_id', $gudang->getKey())
-            ->whereDate('periode', $periodStart->toDateString())
+            ->where('periode', $periodStart->toDateString())
             ->first();
 
         $query = Barang::query()
@@ -328,7 +328,7 @@ final class StokOpnameService
         DB::transaction(function () use ($gudang, $periodStart): void {
             $opname = StokOpname::query()
                 ->where('gudang_id', $gudang->getKey())
-                ->whereDate('periode', $periodStart->toDateString())
+                ->where('periode', $periodStart->toDateString())
                 ->lockForUpdate()
                 ->first();
 
@@ -352,7 +352,7 @@ final class StokOpnameService
         $opname = StokOpname::query()
             ->with(['details' => static fn ($details) => $details->orderBy('kode_barang')])
             ->where('gudang_id', $gudang->getKey())
-            ->whereDate('periode', $periodStart->toDateString())
+            ->where('periode', $periodStart->toDateString())
             ->where('status', 'diterapkan')
             ->first();
 
@@ -385,7 +385,7 @@ final class StokOpnameService
     {
         $opname = StokOpname::query()
             ->where('gudang_id', $gudang->getKey())
-            ->whereDate('periode', $periodStart->toDateString())
+            ->where('periode', $periodStart->toDateString())
             ->lockForUpdate()
             ->first();
 

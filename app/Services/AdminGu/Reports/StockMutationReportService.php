@@ -126,7 +126,7 @@ class StockMutationReportService
         $sources[] = DB::table('stok_awals')
             ->where('gudang_id', $warehouseId)
             ->whereNull('deleted_at')
-            ->whereDate('tanggal_acuan', '<', $start)
+            ->where('tanggal_acuan', '<', $start)
             ->select('barang_id')
             ->selectRaw("SUM(qty) AS opening_qty, {$zero} AS store_qty, {$zero} AS purchase_qty, {$zero} AS out_qty, {$zero} AS opname_qty")
             ->groupBy('barang_id');
@@ -138,7 +138,7 @@ class StockMutationReportService
             ->join('penerimaan_units as h', 'h.id', '=', 'd.penerimaan_unit_id')
             ->where('h.gudang_id', $warehouseId)
             ->whereIn('h.status_verifikasi', self::VERIFIED_RECEIPT_STATUSES)
-            ->whereDate('h.tanggal_terima', '<=', $end)
+            ->where('h.tanggal_terima', '<=', $end)
             ->select('d.barang_id')
             ->selectRaw(
                 "SUM(CASE WHEN h.tanggal_terima < ? THEN {$goodReceipt} ELSE 0 END) AS opening_qty, ".
@@ -170,7 +170,7 @@ class StockMutationReportService
             ->join('pengeluaran_units as h', 'h.id', '=', 'd.pengeluaran_unit_id')
             ->where('h.gudang_id', $warehouseId)
             ->whereIn('h.status_verifikasi', ['terverifikasi', 'verified', 'applied'])
-            ->whereDate('h.tanggal', '<=', $end)
+            ->where('h.tanggal', '<=', $end)
             ->select('d.barang_id')
             ->selectRaw(
                 "SUM(CASE WHEN h.tanggal < ? THEN -({$netIssue}) ELSE 0 END) AS opening_qty, ".

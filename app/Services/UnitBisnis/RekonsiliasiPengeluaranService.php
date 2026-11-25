@@ -288,7 +288,7 @@ final class RekonsiliasiPengeluaranService
         }
 
         if ($filters['tanggal'] !== null) {
-            $query->whereDate('tanggal', $filters['tanggal']);
+            $query->where('tanggal', $filters['tanggal']);
         }
 
         if ($filters['q'] !== '') {
@@ -364,6 +364,8 @@ final class RekonsiliasiPengeluaranService
             ->where('status_verifikasi', 'menunggu_verifikasi');
 
         $today = today();
+        $todayStart = $today->copy()->startOfDay();
+        $tomorrowStart = $todayStart->copy()->addDay();
         $monthStart = $today->copy()->startOfMonth();
         $monthEnd = $today->copy()->endOfMonth();
 
@@ -371,7 +373,7 @@ final class RekonsiliasiPengeluaranService
             ->join('pengeluaran_units as headers', 'headers.id', '=', 'details.pengeluaran_unit_id')
             ->where('headers.gudang_id', $gudang->getKey())
             ->whereIn('headers.status_verifikasi', ['terverifikasi', 'sesuai'])
-            ->whereDate('headers.tanggal', $today)
+            ->where('headers.tanggal', $today->toDateString())
             ->groupBy('headers.bagian_peminta')
             ->orderByRaw('SUM(details.subtotal_nilai) DESC')
             ->value('headers.bagian_peminta');
@@ -390,7 +392,8 @@ final class RekonsiliasiPengeluaranService
             'verified_today_count' => (int) PengeluaranUnit::query()
                 ->where('gudang_id', $gudang->getKey())
                 ->whereIn('status_verifikasi', ['terverifikasi', 'sesuai'])
-                ->whereDate('diverifikasi_at', $today)
+                ->where('diverifikasi_at', '>=', $todayStart)
+                ->where('diverifikasi_at', '<', $tomorrowStart)
                 ->count(),
             'month_value' => (float) PengeluaranUnitDetail::query()
                 ->whereHas('pengeluaranUnit', static fn (Builder $query): Builder => $query

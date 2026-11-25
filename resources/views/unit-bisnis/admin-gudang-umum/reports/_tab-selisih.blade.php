@@ -66,6 +66,11 @@
                 </tbody>
             </table>
         </div>
+        @if ($report['opname_items'] instanceof \Illuminate\Pagination\LengthAwarePaginator)
+            <div class="border-t border-slate-100 px-4 py-3">
+                {{ $report['opname_items']->links() }}
+            </div>
+        @endif
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -115,5 +120,10 @@
                 </tbody>
             </table>
         </div>
+        @if ($report['damaged_items'] instanceof \Illuminate\Pagination\LengthAwarePaginator)
+            <div class="border-t border-slate-100 px-4 py-3">
+                {{ $report['damaged_items']->links() }}
+            </div>
+        @endif
     </section>
 </section>

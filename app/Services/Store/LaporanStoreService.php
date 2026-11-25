@@ -28,9 +28,10 @@ final class LaporanStoreService
     ): array {
         if ($type === 'stok_akhir') {
             $query = Barang::query()
-                ->with(['kategori', 'satuan'])
+                ->with(['kategori:id,nama', 'satuan:id,nama'])
                 ->where('gudang_id', $store->id)
-                ->where('is_aktif', true);
+                ->where('is_aktif', true)
+                ->select(['id', 'kode', 'nama', 'kategori_id', 'satuan_id', 'minimum_stok']);
 
             if ($categoryId) {
                 $query->where('kategori_id', $categoryId);
@@ -64,11 +65,15 @@ final class LaporanStoreService
 
         if ($type === 'mutasi') {
             $detailRows = PenerimaanBarangStoreDetail::query()
-                ->with(['barang.kategori', 'satuan', 'penerimaan.penerima'])
+                ->with([
+                    'barang:id,nama',
+                    'penerimaan:id,diterima_oleh,tanggal_diterima,nomor_penerimaan,sumber_supplier',
+                    'penerimaan.penerima:id,name',
+                ])
                 ->whereHas('penerimaan', fn ($query) => $query
                     ->where('gudang_id', $store->id)
                     ->whereBetween('tanggal_diterima', [$start.' 00:00:00', $end.' 23:59:59']))
-                ->get()
+                ->get(['id', 'penerimaan_barang_store_id', 'barang_id', 'qty_diterima', 'pemakai'])
                 ->map(fn (PenerimaanBarangStoreDetail $detail): array => [
                     $detail->penerimaan->tanggal_diterima,
                     $detail->penerimaan->nomor_penerimaan,
@@ -82,11 +87,11 @@ final class LaporanStoreService
                 ]);
 
             $legacyDetailRows = PenerimaanBarangStore::query()
-                ->with(['barang', 'satuan', 'penerima'])
+                ->with(['barang:id,nama', 'penerima:id,name'])
                 ->where('gudang_id', $store->id)
                 ->whereDoesntHave('details')
                 ->whereBetween('tanggal_diterima', [$start.' 00:00:00', $end.' 23:59:59'])
-                ->get()
+                ->get(['id', 'barang_id', 'diterima_oleh', 'tanggal_diterima', 'nomor_penerimaan', 'qty_diterima', 'sumber_supplier'])
                 ->map(fn (PenerimaanBarangStore $receipt): array => [
                     $receipt->tanggal_diterima,
                     $receipt->nomor_penerimaan,
@@ -100,11 +105,11 @@ final class LaporanStoreService
                 ]);
 
             $transferRows = TransferBarang::query()
-                ->with(['barang', 'gudangTujuan', 'pengirim'])
+                ->with(['barang:id,nama', 'gudangTujuan:id,nama', 'pengirim:id,name'])
                 ->where('gudang_asal_id', $store->id)
                 ->whereIn('status', ['dikirim', 'diterima'])
                 ->whereBetween('dikirim_at', [$start.' 00:00:00', $end.' 23:59:59'])
-                ->get()
+                ->get(['id', 'barang_id', 'gudang_tujuan_id', 'dikirim_oleh', 'nomor_sj', 'qty_dikirim', 'dikirim_at', 'status'])
                 ->map(fn (TransferBarang $transfer): array => [
                     $transfer->dikirim_at,
                     $transfer->nomor_sj,
@@ -127,11 +132,11 @@ final class LaporanStoreService
         }
 
         $rows = TransferBarang::query()
-            ->with(['barang', 'gudangTujuan', 'pengirim'])
+            ->with(['barang:id,nama', 'gudangTujuan:id,nama', 'pengirim:id,name'])
             ->where('gudang_asal_id', $store->id)
             ->whereBetween('created_at', [$start.' 00:00:00', $end.' 23:59:59'])
             ->orderByDesc('created_at')
-            ->get()
+            ->get(['id', 'barang_id', 'gudang_tujuan_id', 'dikirim_oleh', 'nomor_sj', 'qty_dikirim', 'dikirim_at', 'created_at', 'status'])
             ->map(fn (TransferBarang $transfer): array => [
                 $transfer->nomor_sj,
                 $transfer->dikirim_at,

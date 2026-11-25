@@ -407,7 +407,7 @@ final class RekonsiliasiPenerimaanService
         }
 
         if ($filters['tanggal'] !== null) {
-            $query->whereDate('receipts.tanggal_terima', $filters['tanggal']);
+            $query->where('receipts.tanggal_terima', $filters['tanggal']);
         }
 
         if ($filters['q'] !== '') {
@@ -473,7 +473,9 @@ final class RekonsiliasiPenerimaanService
         }
 
         if ($filters['tanggal'] !== null) {
-            $query->whereDate('receipts.diterima_at', $filters['tanggal']);
+            $dateStart = Carbon::parse($filters['tanggal'])->startOfDay();
+            $query->where('receipts.diterima_at', '>=', $dateStart)
+                ->where('receipts.diterima_at', '<', $dateStart->copy()->addDay());
         }
 
         if ($filters['q'] !== '') {

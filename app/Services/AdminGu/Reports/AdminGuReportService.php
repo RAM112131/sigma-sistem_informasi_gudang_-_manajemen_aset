@@ -81,14 +81,14 @@ class AdminGuReportService
         return match ($filters['tab']) {
             'matriks' => $this->divisionMatrixReportService->report($warehouseId, $filters['period'], $filters, $paginate),
             'pemasukan' => $this->inboundSourceReportService->report($warehouseId, $filters['period'], $filters, $paginate),
-            'selisih' => $this->opnameDiscrepancyReportService->report($warehouseId, $filters['period'], $filters),
+            'selisih' => $this->opnameDiscrepancyReportService->report($warehouseId, $filters['period'], $filters, $paginate),
             default => $this->stockMutationReportService->report($warehouseId, $filters['period'], $filters, $paginate),
         };
     }
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return array{period: string, tab: string, category_id: int|null, search: string, source_type: string|null, matrix_mode: string, page: int}
+     * @return array{period: string, tab: string, category_id: int|null, search: string, source_type: string|null, matrix_mode: string, page: int, opname_page: int, damaged_page: int}
      */
     private function normalizeFilters(array $filters): array
     {
@@ -102,6 +102,8 @@ class AdminGuReportService
             'source_type' => $filters['source_type'] ?? null,
             'matrix_mode' => (string) ($filters['matrix_mode'] ?? 'qty'),
             'page' => max(1, (int) ($filters['page'] ?? 1)),
+            'opname_page' => max(1, (int) ($filters['opname_page'] ?? 1)),
+            'damaged_page' => max(1, (int) ($filters['damaged_page'] ?? 1)),
         ];
     }
 

@@ -133,7 +133,7 @@
                                             <small>{{ $permintaan->created_at->diffForHumans() }}</small>
                                         </td>
                                         <td>{{ $permintaan->gudangPeminta?->nama ?? 'Unit Bisnis' }}</td>
-                                        <td>{{ $permintaan->details->count() }} jenis barang</td>
+                                        <td>{{ $permintaan->details_count }} jenis barang</td>
                                         @canany(['store_pengeluaran.create', 'store.distribusi'])
                                             <td>
                                                 <a href="{{ route('store.pengeluaran.index', ['tab' => 'permintaan']) }}"

@@ -64,14 +64,35 @@
   const heroSlides = Array.from(heroImageStage?.querySelectorAll('.warehouse-hero-image') ?? []);
   const heroDots = Array.from(document.querySelectorAll('.hero-dots span'));
   if (heroImageStage && heroSlides.length > 1) {
+    const loadDeferredHeroImages = () => {
+      heroSlides.forEach((slide) => {
+        if (slide.dataset.src) {
+          slide.src = slide.dataset.src;
+          delete slide.dataset.src;
+        }
+      });
+    };
+
+    if (document.readyState === 'complete') {
+      window.setTimeout(loadDeferredHeroImages, 0);
+    } else {
+      window.addEventListener('load', loadDeferredHeroImages, { once: true });
+    }
+
     let activeSlideIndex = 0;
     let isPaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let rotationTimer;
 
     function showNextHeroSlide() {
+      const nextSlideIndex = (activeSlideIndex + 1) % heroSlides.length;
+      const nextSlide = heroSlides[nextSlideIndex];
+
+      if (!nextSlide.complete || nextSlide.naturalWidth === 0) {
+        return;
+      }
+
       const currentSlide = heroSlides[activeSlideIndex];
-      activeSlideIndex = (activeSlideIndex + 1) % heroSlides.length;
-      const nextSlide = heroSlides[activeSlideIndex];
+      activeSlideIndex = nextSlideIndex;
 
       currentSlide.classList.remove('is-active');
       currentSlide.classList.add('is-exiting');

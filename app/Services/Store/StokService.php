@@ -48,17 +48,33 @@ final class StokService
         $statusFilter = $filters['status'] ?? null;
 
         if (in_array($statusFilter, ['aman', 'warning', 'kritis', 'critical'], true)) {
-            $allBarangs = $query->with(['kategori', 'satuan'])->orderBy('nama')->get();
+            $allBarangs = (clone $query)->orderBy('nama')->get(['id', 'minimum_stok']);
             $stokTotals = $this->totals($allBarangs->modelKeys(), (int) $gudangStore->id);
-            $filteredItems = $allBarangs
-                ->map(fn (Barang $barang): array => $this->presentStockItem($barang, $stokTotals))
-                ->filter(fn (array $item): bool => $this->matchesStatus($item, $statusFilter))
-                ->values();
+            $filteredIds = $allBarangs
+                ->filter(fn (Barang $barang): bool => $this->matchesStatus(
+                    $this->presentStockItem($barang, $stokTotals),
+                    $statusFilter,
+                ))
+                ->modelKeys();
             $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+            $pageIds = collect($filteredIds)->forPage($currentPage, $perPage)->values();
+            $pageBarangs = $pageIds->isEmpty()
+                ? collect()
+                : (clone $query)
+                    ->with(['kategori:id,nama', 'satuan:id,nama'])
+                    ->whereKey($pageIds)
+                    ->get()
+                    ->keyBy('id');
+            $pageItems = $pageIds
+                ->map(fn (int|string $id): ?array => ($barang = $pageBarangs->get($id)) instanceof Barang
+                    ? $this->presentStockItem($barang, $stokTotals)
+                    : null)
+                ->filter()
+                ->values();
 
             $barangs = new \Illuminate\Pagination\LengthAwarePaginator(
-                $filteredItems->forPage($currentPage, $perPage)->values(),
-                $filteredItems->count(),
+                $pageItems,
+                count($filteredIds),
                 $perPage,
                 $currentPage,
                 ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
@@ -80,8 +96,11 @@ final class StokService
                 })
                 ->where('is_aktif', true)
                 ->orderBy('nama')
-                ->get(),
-            'satuanList' => Satuan::query()->where('is_aktif', true)->orderBy('nama')->get(),
+                ->get(['id', 'nama']),
+            'satuanList' => Satuan::query()
+                ->where('is_aktif', true)
+                ->orderBy('nama')
+                ->get(['id', 'kode', 'nama']),
         ];
     }
 
@@ -585,10 +604,10 @@ final class StokService
     public function mutations(Barang $barang, int $gudangId): Collection
     {
         $initial = StokAwal::query()
-            ->with('diinputOleh')
+            ->with('diinputOleh:id,name')
             ->where('gudang_id', $gudangId)
             ->where('barang_id', $barang->id)
-            ->get()
+            ->get(['id', 'diinput_oleh', 'tanggal_acuan', 'qty'])
             ->map(fn (StokAwal $stock) => [
                 'tanggal' => $stock->tanggal_acuan,
                 'jenis' => 'STOK AWAL',
@@ -601,10 +620,11 @@ final class StokService
             ]);
 
         $details = PenerimaanBarangStoreDetail::query()
-            ->with('penerimaan.penerima')
+            ->with('penerimaan:id,diterima_oleh,tanggal_diterima,nomor_penerimaan,sumber_supplier')
+            ->with('penerimaan.penerima:id,name')
             ->where('barang_id', $barang->id)
             ->whereHas('penerimaan', fn ($query) => $query->where('gudang_id', $gudangId))
-            ->get()
+            ->get(['id', 'penerimaan_barang_store_id', 'qty_diterima', 'qty_rusak'])
             ->map(fn (PenerimaanBarangStoreDetail $detail) => [
                 'tanggal' => $detail->penerimaan->tanggal_diterima,
                 'jenis' => 'BARANG MASUK',
@@ -617,11 +637,11 @@ final class StokService
             ]);
 
         $legacy = PenerimaanBarangStore::query()
-            ->with('penerima')
+            ->with('penerima:id,name')
             ->where('gudang_id', $gudangId)
             ->where('barang_id', $barang->id)
             ->whereDoesntHave('details')
-            ->get()
+            ->get(['id', 'diterima_oleh', 'tanggal_diterima', 'nomor_penerimaan', 'sumber_supplier', 'qty_diterima'])
             ->map(fn (PenerimaanBarangStore $receipt) => [
                 'tanggal' => $receipt->tanggal_diterima,
                 'jenis' => 'BARANG MASUK',
@@ -634,11 +654,11 @@ final class StokService
             ]);
 
         $transfers = TransferBarang::query()
-            ->with('gudangTujuan')
+            ->with('gudangTujuan:id,nama')
             ->where('gudang_asal_id', $gudangId)
             ->where('barang_id', $barang->id)
             ->whereIn('status', ['dikirim', 'diterima'])
-            ->get()
+            ->get(['id', 'gudang_tujuan_id', 'nomor_sj', 'qty_dikirim', 'supir_pengantar', 'dikirim_at', 'created_at'])
             ->map(fn (TransferBarang $transfer) => [
                 'tanggal' => $transfer->dikirim_at ?? $transfer->created_at,
                 'jenis' => 'BARANG KELUAR',
@@ -651,11 +671,11 @@ final class StokService
             ]);
 
         $transfersIn = TransferBarang::query()
-            ->with('gudangAsal')
+            ->with('gudangAsal:id,nama')
             ->where('gudang_tujuan_id', $gudangId)
             ->where('barang_id', $barang->id)
             ->whereIn('status', ['dikirim', 'diterima'])
-            ->get()
+            ->get(['id', 'gudang_asal_id', 'nomor_sj', 'qty_dikirim', 'qty_diterima', 'status', 'supir_pengantar', 'diterima_at', 'dikirim_at', 'created_at'])
             ->map(fn (TransferBarang $transfer) => [
                 'tanggal' => $transfer->diterima_at ?? $transfer->dikirim_at ?? $transfer->created_at,
                 'jenis' => 'KIRIMAN DARI STORE',
@@ -668,12 +688,13 @@ final class StokService
             ]);
 
         $opnameAdjustments = StokOpnameDetail::query()
-            ->with('opname.diterapkanOleh')
+            ->with('opname:id,diterapkan_oleh,periode,tanggal_efektif')
+            ->with('opname.diterapkanOleh:id,name')
             ->where('barang_id', $barang->id)
             ->whereHas('opname', static fn (Builder $query): Builder => $query
                 ->where('gudang_id', $gudangId)
                 ->where('status', 'diterapkan'))
-            ->get()
+            ->get(['id', 'stok_opname_id', 'qty_fisik', 'qty_sistem', 'qty_sistem_at'])
             ->map(static function (StokOpnameDetail $detail): array {
                 $selisih = (float) $detail->qty_fisik - (float) $detail->qty_sistem;
                 $opname = $detail->opname;
@@ -951,9 +972,68 @@ final class StokService
                     ->filter()
                     ->unique()
                     ->values();
+                $lowerNames = $names;
+                $categoryNames = collect($chunk)
+                    ->map(static fn (array $row): string => trim((string) ($row['kategori'] ?? '')))
+                    ->filter()
+                    ->unique()
+                    ->values();
+                $unitCodes = collect($chunk)
+                    ->map(static fn (array $row): string => strtoupper(trim((string) ($row['satuan'] ?? ''))))
+                    ->filter()
+                    ->unique()
+                    ->values();
                 $masterIndexes = $this->indexImportMasterBarangs(
                     $this->findImportMasterBarangs($codes, $names, lockForUpdate: true)
                 );
+                $existingBarangs = $codes->isEmpty() && $lowerNames->isEmpty()
+                    ? collect()
+                    : Barang::query()
+                        ->where('gudang_id', $gudangId)
+                        ->where(static function (Builder $query) use ($codes, $lowerNames): void {
+                            if ($codes->isNotEmpty()) {
+                                $query->whereIn('kode', $codes);
+                            }
+
+                            if ($lowerNames->isNotEmpty()) {
+                                $method = $codes->isNotEmpty() ? 'orWhereIn' : 'whereIn';
+                                $query->{$method}(DB::raw('LOWER(nama)'), $lowerNames);
+                            }
+                        })
+                        ->with(['satuan:id,kode', 'masterBarang:id,nama,is_aktif'])
+                        ->orderBy('id')
+                        ->get(['id', 'master_barang_id', 'satuan_id', 'kode', 'nama']);
+                $barangsByCode = [];
+                $barangsByName = [];
+                foreach ($existingBarangs as $existingBarang) {
+                    $barangsByCode[$existingBarang->kode] ??= $existingBarang;
+                    $barangsByName[mb_strtolower($existingBarang->nama)] ??= $existingBarang;
+                }
+
+                $existingStokAwalIds = $existingBarangs->isEmpty()
+                    ? []
+                    : StokAwal::query()
+                        ->where('gudang_id', $gudangId)
+                        ->whereIn('barang_id', $existingBarangs->pluck('id'))
+                        ->pluck('barang_id')
+                        ->mapWithKeys(static fn (int|string $id): array => [(int) $id => true])
+                        ->all();
+                $categoriesByName = $categoryNames->isEmpty()
+                    ? []
+                    : KategoriBarang::query()
+                        ->where('gudang_id', $gudangId)
+                        ->whereIn('nama', $categoryNames)
+                        ->orderBy('id')
+                        ->get(['id', 'gudang_id', 'nama', 'is_aktif'])
+                        ->keyBy('nama')
+                        ->all();
+                $satuansByCode = $unitCodes->isEmpty()
+                    ? []
+                    : Satuan::query()
+                        ->whereIn(DB::raw('UPPER(kode)'), $unitCodes)
+                        ->get(['id', 'kode', 'nama', 'is_aktif'])
+                        ->mapWithKeys(static fn (Satuan $satuan): array => [strtoupper($satuan->kode) => $satuan])
+                        ->all();
 
                 foreach ($chunk as $index => $row) {
                     try {
@@ -965,14 +1045,19 @@ final class StokService
                             $catatanUmum,
                             $gudang,
                             $masterIndexes,
+                            &$barangsByCode,
+                            &$barangsByName,
+                            &$existingStokAwalIds,
+                            &$categoriesByName,
+                            &$satuansByCode,
                             &$success,
                             &$created,
                         ): void {
                             $kode = strtoupper(trim((string) $row['kode_barang']));
                             $nama = trim((string) $row['nama_barang']);
                             $satuanKode = strtoupper(trim((string) $row['satuan']));
-                            $barangByKode = Barang::where('gudang_id', $gudangId)->where('kode', $kode)->first();
-                            $barangByNama = Barang::where('gudang_id', $gudangId)->whereRaw('LOWER(nama) = ?', [mb_strtolower($nama)])->first();
+                            $barangByKode = $barangsByCode[$kode] ?? null;
+                            $barangByNama = $barangsByName[mb_strtolower($nama)] ?? null;
                             $barang = $barangByKode ?? $barangByNama;
 
                             if ($barangByKode && mb_strtolower(trim($barangByKode->nama)) !== mb_strtolower($nama)) {
@@ -994,15 +1079,20 @@ final class StokService
                                 throw new \RuntimeException($masterConflict);
                             }
 
-                            if ($barang && StokAwal::where('gudang_id', $gudangId)->where('barang_id', $barang->id)->exists()) {
+                            if ($barang && isset($existingStokAwalIds[(int) $barang->id])) {
                                 throw new \RuntimeException('Stok awal untuk barang ini sudah pernah tercatat di gudang Store.');
                             }
 
-                            $kategori = KategoriBarang::firstOrCreate(
-                                ['gudang_id' => $gudangId, 'nama' => trim((string) $row['kategori'])],
-                                ['is_aktif' => true]
-                            );
-                            $satuan = Satuan::whereRaw('UPPER(kode) = ?', [$satuanKode])->first();
+                            $categoryName = trim((string) $row['kategori']);
+                            $kategori = $categoriesByName[$categoryName] ?? null;
+                            if (! $kategori) {
+                                $kategori = KategoriBarang::firstOrCreate(
+                                    ['gudang_id' => $gudangId, 'nama' => $categoryName],
+                                    ['is_aktif' => true]
+                                );
+                            }
+
+                            $satuan = $satuansByCode[$satuanKode] ?? null;
                             if (! $satuan) {
                                 $satuan = Satuan::create([
                                     'kode' => $satuanKode,
@@ -1049,6 +1139,11 @@ final class StokService
                                 'sumber' => 'import',
                                 'diinput_oleh' => $userId,
                             ]);
+                            $barangsByCode[$kode] = $barang;
+                            $barangsByName[mb_strtolower($nama)] = $barang;
+                            $existingStokAwalIds[(int) $barang->id] = true;
+                            $categoriesByName[$categoryName] = $kategori;
+                            $satuansByCode[$satuanKode] = $satuan;
                             $success++;
                         });
                     } catch (Throwable $exception) {

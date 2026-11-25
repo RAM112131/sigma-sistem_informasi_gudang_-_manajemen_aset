@@ -45,6 +45,8 @@ final class ReportFilterRequest extends FormRequest
             'source_type' => ['nullable', Rule::in(['store_transfer', 'direct_purchase'])],
             'matrix_mode' => ['required', Rule::in(['qty', 'rupiah'])],
             'page' => ['nullable', 'integer', 'min:1'],
+            'opname_page' => ['nullable', 'integer', 'min:1'],
+            'damaged_page' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }

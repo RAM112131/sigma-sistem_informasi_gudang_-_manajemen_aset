@@ -31,6 +31,9 @@ final class DashboardStoreService
      */
     public function getDashboardData(Gudang $gudangStore): array
     {
+        $todayStart = today();
+        $tomorrowStart = $todayStart->copy()->addDay();
+
         $barangStore = Barang::query()
             ->where('gudang_id', $gudangStore->id)
             ->where('is_aktif', true)
@@ -57,9 +60,10 @@ final class DashboardStoreService
         $jumlahStokKritis = $barangKritis->count();
         $barangKritisTerpilih = $barangKritis->take(5);
         $stockLevelsById = $barangKritisTerpilih->keyBy('id');
-        $stokKritis = Barang::with(['kategori', 'satuan'])
+        $stokKritis = Barang::query()
+            ->with(['kategori:id,nama', 'satuan:id,nama'])
             ->whereKey($barangKritisTerpilih->pluck('id'))
-            ->get()
+            ->get(['id', 'kode', 'nama', 'minimum_stok', 'kategori_id', 'satuan_id'])
             ->map(function (Barang $barang) use ($stockLevelsById): Barang {
                 $level = $stockLevelsById->get($barang->id);
                 $barang->setAttribute('stok_aktual', $level['stok_aktual']);
@@ -82,7 +86,9 @@ final class DashboardStoreService
             'stokKritis' => $stokKritis,
             'jumlahStokKritis' => $jumlahStokKritis,
             'permintaanBelumDiproses' => (clone $permintaanQuery)
-                ->with(['gudangPeminta', 'details.barang'])
+                ->select(['id', 'gudang_peminta_id', 'nomor_pr', 'created_at'])
+                ->with('gudangPeminta:id,nama')
+                ->withCount('details')
                 ->orderByDesc('created_at')
                 ->limit(5)
                 ->get(),
@@ -95,11 +101,13 @@ final class DashboardStoreService
             'jumlahPemindahanBerjalan' => $jumlahPemindahanBerjalan,
             'totalPenerimaanHariIni' => PenerimaanBarangStore::query()
                 ->where('gudang_id', $gudangStore->id)
-                ->whereDate('tanggal_diterima', today()->toDateString())
+                ->where('tanggal_diterima', '>=', $todayStart)
+                ->where('tanggal_diterima', '<', $tomorrowStart)
                 ->count(),
             'totalPemindahanHariIni' => TransferBarang::query()
                 ->where('gudang_asal_id', $gudangStore->id)
-                ->whereDate('dikirim_at', today()->toDateString())
+                ->where('dikirim_at', '>=', $todayStart)
+                ->where('dikirim_at', '<', $tomorrowStart)
                 ->count(),
         ];
     }
