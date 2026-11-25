@@ -125,11 +125,19 @@ final class QuickAddController extends Controller
             'nama' => ['required', 'string', 'max:100'],
         ]);
 
-        $kategori = KategoriBarang::create([
-            'gudang_id' => null,
-            'nama' => trim($validated['nama']),
-            'is_aktif' => true,
-        ]);
+        $nama = trim($validated['nama']);
+        $kategori = KategoriBarang::query()
+            ->whereRaw('LOWER(nama) = ?', [Str::lower($nama)])
+            ->where('is_aktif', true)
+            ->first();
+
+        if (! $kategori) {
+            $kategori = KategoriBarang::create([
+                'gudang_id' => null,
+                'nama' => $nama,
+                'is_aktif' => true,
+            ]);
+        }
 
         return response()->json([
             'success' => true,

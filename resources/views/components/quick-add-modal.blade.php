@@ -62,13 +62,42 @@
         this.$watch('newSatuanKode', () => this.updateQuickAddSatuanName());
     },
 
+    csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+    },
+
+    async parseJsonResponse(res) {
+        const text = await res.text();
+        let data = {};
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (e) {
+            data = { message: `Server mengembalikan respons tidak valid (HTTP ${res.status}).` };
+        }
+        return { ok: res.ok, status: res.status, data };
+    },
+
+    extractErrorMessage(data, fallback) {
+        if (data?.errors) {
+            return Object.values(data.errors).flat().join(' ');
+        }
+        return data?.message || fallback;
+    },
+
     checkSimilarity(name) {
         this.isSearchingSimilar = true;
-        fetch('{{ url('/api/quick-add/check-similarity') }}?nama=' + encodeURIComponent(name))
-            .then(res => res.json())
-            .then(data => {
-                this.hasSimilar = data.has_similar;
-                this.similarItems = data.similar_items || [];
+        fetch('/api/quick-add/check-similarity?nama=' + encodeURIComponent(name), {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => this.parseJsonResponse(res))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    this.hasSimilar = Boolean(data.has_similar);
+                    this.similarItems = data.similar_items || [];
+                }
             })
             .catch(err => console.error(err))
             .finally(() => this.isSearchingSimilar = false);
@@ -91,40 +120,60 @@
         this.kategoriSearch = kategori.nama;
     },
 
+    findMatchingKategori(query) {
+        const normalized = String(query || '').trim().toLowerCase();
+        if (!normalized) return null;
+        return this.kategoris.find(kat => kat.nama.trim().toLowerCase() === normalized) || null;
+    },
+
     openNewKategori() {
         this.addKategoriFromSearch();
     },
 
-    addKategoriFromSearch() {
+    async addKategoriFromSearch() {
         const nama = this.kategoriSearch.trim();
-        if (!nama || this.categoryCreating) return;
+        if (!nama || this.categoryCreating) return null;
+
+        const existing = this.findMatchingKategori(nama);
+        if (existing) {
+            this.selectKategori(existing);
+            this.kategoriDropdown = false;
+            return existing;
+        }
 
         this.categoryCreating = true;
         this.errorMessage = '';
 
-        fetch('{{ url('/api/quick-add/kategori') }}', {
+        try {
+            const res = await fetch('/api/quick-add/kategori', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': this.csrfToken()
                 },
                 body: JSON.stringify({ nama })
-            })
-            .then(res => res.json().then(data => ({ ok: res.ok, data })))
-            .then(({ ok, data }) => {
-                if (!ok || !data.success) {
-                    this.errorMessage = data.message || 'Kategori gagal ditambahkan.';
-                    return;
-                }
+            });
+            const { ok, data } = await this.parseJsonResponse(res);
+            if (!ok || !data.success) {
+                this.errorMessage = this.extractErrorMessage(data, 'Kategori gagal ditambahkan.');
+                return null;
+            }
 
+            if (!this.kategoris.some(k => k.id === data.kategori.id)) {
                 this.kategoris.push(data.kategori);
-                this.selectKategori(data.kategori);
-                this.kategoriDropdown = false;
-            })
-            .catch(() => {
-                this.errorMessage = 'Terjadi kesalahan saat menambahkan kategori.';
-            })
-            .finally(() => this.categoryCreating = false);
+            }
+            this.selectKategori(data.kategori);
+            this.kategoriDropdown = false;
+            return data.kategori;
+        } catch (err) {
+            this.errorMessage = 'Gagal terhubung ke server saat menambahkan kategori.';
+            console.error(err);
+            return null;
+        } finally {
+            this.categoryCreating = false;
+        }
     },
 
     filteredSatuans() {
@@ -140,41 +189,65 @@
         this.satuanSearch = satuan.nama + ' (' + satuan.kode + ')';
     },
 
-    openNewSatuan() {
+    findMatchingSatuan(query) {
+        const normalized = String(query || '').trim().toLowerCase();
+        if (!normalized) return null;
+        return this.satuans.find(sat =>
+            sat.nama.trim().toLowerCase() === normalized ||
+            sat.kode.trim().toLowerCase() === normalized ||
+            (sat.nama + ' (' + sat.kode + ')').trim().toLowerCase() === normalized
+        ) || null;
+    },
+
+    async openNewSatuan() {
         const nama = this.satuanSearch.trim();
-        if (!nama || this.satuanCreating) return;
+        if (!nama || this.satuanCreating) return null;
+
+        const existing = this.findMatchingSatuan(nama);
+        if (existing) {
+            this.selectSatuan(existing);
+            this.satuanDropdown = false;
+            return existing;
+        }
 
         this.satuanCreating = true;
         this.errorMessage = '';
         const kode = nama.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 20);
 
-        fetch('{{ url('/api/quick-add/satuan') }}', {
+        try {
+            const res = await fetch('/api/quick-add/satuan', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': this.csrfToken()
                 },
                 body: JSON.stringify({ kode, nama })
-            })
-            .then(res => res.json().then(data => ({ ok: res.ok, data })))
-            .then(({ ok, data }) => {
-                if (!ok || !data.success) {
-                    this.errorMessage = data.message || 'Satuan gagal ditambahkan.';
-                    return;
-                }
+            });
+            const { ok, data } = await this.parseJsonResponse(res);
+            if (!ok || !data.success) {
+                this.errorMessage = this.extractErrorMessage(data, 'Satuan gagal ditambahkan.');
+                return null;
+            }
 
+            if (!this.satuans.some(s => s.id === data.satuan.id)) {
                 this.satuans.push(data.satuan);
-                this.selectSatuan(data.satuan);
-                this.satuanDropdown = false;
-            })
-            .catch(() => {
-                this.errorMessage = 'Terjadi kesalahan saat menambahkan satuan.';
-            })
-            .finally(() => this.satuanCreating = false);
+            }
+            this.selectSatuan(data.satuan);
+            this.satuanDropdown = false;
+            return data.satuan;
+        } catch (err) {
+            this.errorMessage = 'Gagal terhubung ke server saat menambahkan satuan.';
+            console.error(err);
+            return null;
+        } finally {
+            this.satuanCreating = false;
+        }
     },
 
-    submitBarang() {
-        if (!this.namaBarang || !this.kategoriId || !this.satuanId) {
+    async submitBarang() {
+        if (!this.namaBarang.trim()) {
             this.errorMessage = 'Mohon lengkapi Nama Barang, Kategori, dan Satuan.';
             return;
         }
@@ -182,96 +255,142 @@
         this.submitting = true;
         this.errorMessage = '';
 
-        fetch('{{ url('/api/quick-add/barang') }}', {
+        try {
+            if (!this.kategoriId && this.kategoriSearch.trim()) {
+                const matchedKat = this.findMatchingKategori(this.kategoriSearch);
+                if (matchedKat) {
+                    this.selectKategori(matchedKat);
+                } else {
+                    const createdKat = await this.addKategoriFromSearch();
+                    if (!createdKat) {
+                        this.submitting = false;
+                        return;
+                    }
+                }
+            }
+
+            if (!this.satuanId && this.satuanSearch.trim()) {
+                const matchedSat = this.findMatchingSatuan(this.satuanSearch);
+                if (matchedSat) {
+                    this.selectSatuan(matchedSat);
+                } else {
+                    const createdSat = await this.openNewSatuan();
+                    if (!createdSat) {
+                        this.submitting = false;
+                        return;
+                    }
+                }
+            }
+
+            if (!this.kategoriId || !this.satuanId) {
+                this.errorMessage = 'Mohon lengkapi Nama Barang, Kategori, dan Satuan.';
+                this.submitting = false;
+                return;
+            }
+
+            const res = await fetch('/api/quick-add/barang', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': this.csrfToken()
                 },
                 body: JSON.stringify({
-                    nama: this.namaBarang,
+                    nama: this.namaBarang.trim(),
                     kode: this.kodeBarang,
                     kategori_id: this.kategoriId,
                     satuan_id: this.satuanId,
                     minimum_stok: this.minimumStok,
                     deskripsi: this.deskripsiBarang
                 })
-            })
-            .then(res => res.json().then(data => ({ ok: res.ok, data })))
-            .then(({ ok, data }) => {
-                if (ok && data.success) {
-                    this.$dispatch('item-selected', data.barang);
-                    this.openQuickAdd = false;
-                    this.resetForm();
-                } else {
-                    const msg = data.errors
-                        ? Object.values(data.errors).flat().join(' ')
-                        : (data.message || 'Gagal menambahkan barang.');
-                    this.errorMessage = msg;
-                }
-            })
-            .catch(err => {
-                this.errorMessage = 'Terjadi kesalahan jaringan. Silakan coba lagi.';
-                console.error(err);
-            })
-            .finally(() => this.submitting = false);
+            });
+
+            const { ok, data } = await this.parseJsonResponse(res);
+            if (ok && data.success) {
+                this.$dispatch('item-selected', data.barang);
+                this.openQuickAdd = false;
+                this.resetForm();
+            } else {
+                this.errorMessage = this.extractErrorMessage(data, 'Gagal menambahkan barang.');
+            }
+        } catch (err) {
+            this.errorMessage = 'Gagal terhubung ke server. Silakan coba lagi.';
+            console.error(err);
+        } finally {
+            this.submitting = false;
+        }
     },
 
-    submitKategori() {
-        if (!this.newKategoriNama || this.categoryCreating) return;
+    async submitKategori() {
+        if (!this.newKategoriNama.trim() || this.categoryCreating) return;
         this.categoryCreating = true;
         this.errorMessage = '';
-        fetch('{{ url('/api/quick-add/kategori') }}', {
+        try {
+            const res = await fetch('/api/quick-add/kategori', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': this.csrfToken()
                 },
-                body: JSON.stringify({ nama: this.newKategoriNama })
-            })
-            .then(res => res.json().then(data => ({ ok: res.ok, data })))
-            .then(({ ok, data }) => {
-                if (ok && data.success) {
+                body: JSON.stringify({ nama: this.newKategoriNama.trim() })
+            });
+            const { ok, data } = await this.parseJsonResponse(res);
+            if (ok && data.success) {
+                if (!this.kategoris.some(k => k.id === data.kategori.id)) {
                     this.kategoris.push(data.kategori);
-                    this.kategoriId = data.kategori.id;
-                    this.kategoriSearch = data.kategori.nama;
-                    this.openAddKategori = false;
-                    this.newKategoriNama = '';
-                } else {
-                    this.errorMessage = data.message || 'Gagal menyimpan kategori.';
                 }
-            })
-            .catch(() => { this.errorMessage = 'Terjadi kesalahan saat menyimpan kategori.'; })
-            .finally(() => this.categoryCreating = false);
+                this.kategoriId = data.kategori.id;
+                this.kategoriSearch = data.kategori.nama;
+                this.openAddKategori = false;
+                this.newKategoriNama = '';
+            } else {
+                this.errorMessage = this.extractErrorMessage(data, 'Gagal menyimpan kategori.');
+            }
+        } catch (err) {
+            this.errorMessage = 'Gagal terhubung ke server saat menyimpan kategori.';
+            console.error(err);
+        } finally {
+            this.categoryCreating = false;
+        }
     },
 
-    submitSatuan() {
-        if (!this.newSatuanKode || !this.newSatuanNama || this.satuanCreating) return;
+    async submitSatuan() {
+        if (!this.newSatuanKode.trim() || !this.newSatuanNama.trim() || this.satuanCreating) return;
         this.satuanCreating = true;
         this.errorMessage = '';
-        fetch('{{ url('/api/quick-add/satuan') }}', {
+        try {
+            const res = await fetch('/api/quick-add/satuan', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': this.csrfToken()
                 },
-                body: JSON.stringify({ kode: this.newSatuanKode, nama: this.newSatuanNama })
-            })
-            .then(res => res.json().then(data => ({ ok: res.ok, data })))
-            .then(({ ok, data }) => {
-                if (ok && data.success) {
+                body: JSON.stringify({ kode: this.newSatuanKode.trim(), nama: this.newSatuanNama.trim() })
+            });
+            const { ok, data } = await this.parseJsonResponse(res);
+            if (ok && data.success) {
+                if (!this.satuans.some(s => s.id === data.satuan.id)) {
                     this.satuans.push(data.satuan);
-                    this.satuanId = data.satuan.id;
-                    this.satuanSearch = data.satuan.nama + ' (' + data.satuan.kode + ')';
-                    this.openAddSatuan = false;
-                    this.newSatuanKode = '';
-                    this.newSatuanNama = '';
-                } else {
-                    this.errorMessage = data.message || 'Gagal menyimpan satuan.';
                 }
-            })
-            .catch(() => { this.errorMessage = 'Terjadi kesalahan saat menyimpan satuan.'; })
-            .finally(() => this.satuanCreating = false);
+                this.satuanId = data.satuan.id;
+                this.satuanSearch = data.satuan.nama + ' (' + data.satuan.kode + ')';
+                this.openAddSatuan = false;
+                this.newSatuanKode = '';
+                this.newSatuanNama = '';
+            } else {
+                this.errorMessage = this.extractErrorMessage(data, 'Gagal menyimpan satuan.');
+            }
+        } catch (err) {
+            this.errorMessage = 'Gagal terhubung ke server saat menyimpan satuan.';
+            console.error(err);
+        } finally {
+            this.satuanCreating = false;
+        }
     },
 
     resetForm() {
@@ -481,6 +600,11 @@
                     <button type="button" class="modal-close" @click="openAddKategori = false">&times;</button>
                 </div>
                 <div class="modal-body">
+                    <template x-if="errorMessage">
+                        <div class="alert-toast alert-toast-danger" style="margin-bottom: 12px;">
+                            <span x-text="errorMessage"></span>
+                        </div>
+                    </template>
                     <div class="form-group">
                         <label class="form-label">Nama Kategori Baru</label>
                         <input type="text" class="form-control" x-model="newKategoriNama"
@@ -489,7 +613,11 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" @click="openAddKategori = false">Batal</button>
-                    <button type="button" class="btn btn-primary" @click="submitKategori()">Simpan Kategori</button>
+                    <button type="button" class="btn btn-primary" @click="submitKategori()"
+                        :disabled="categoryCreating">
+                        <span x-show="!categoryCreating">Simpan Kategori</span>
+                        <span x-show="categoryCreating">Menyimpan...</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -503,6 +631,11 @@
                 <button type="button" class="modal-close" @click="openAddSatuan = false">&times;</button>
             </div>
             <div class="modal-body">
+                <template x-if="errorMessage">
+                    <div class="alert-toast alert-toast-danger" style="margin-bottom: 12px;">
+                        <span x-text="errorMessage"></span>
+                    </div>
+                </template>
                 <div class="form-group">
                     <label class="form-label">Satuan</label>
                     <input type="text" class="form-control" x-model="newSatuanKode"
@@ -518,7 +651,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" @click="openAddSatuan = false">Batal</button>
-                <button type="button" class="btn btn-primary" @click="submitSatuan()">Simpan Satuan</button>
+                <button type="button" class="btn btn-primary" @click="submitSatuan()" :disabled="satuanCreating">
+                    <span x-show="!satuanCreating">Simpan Satuan</span>
+                    <span x-show="satuanCreating">Menyimpan...</span>
+                </button>
             </div>
         </div>
     </div>
