@@ -63,7 +63,7 @@
     },
 
     csrfToken() {
-        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+        return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '{{ csrf_token() }}';
     },
 
     async parseJsonResponse(res) {
