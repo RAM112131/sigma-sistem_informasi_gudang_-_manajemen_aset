@@ -271,30 +271,16 @@
         this.errorMessage = '';
 
         try {
-            if (!this.kategoriId && this.kategoriSearch.trim()) {
-                const matchedKat = this.findMatchingKategori(this.kategoriSearch);
-                if (matchedKat) {
-                    this.selectKategori(matchedKat);
-                } else {
-                    const createdKat = await this.addKategoriFromSearch();
-                    if (!createdKat) {
-                        this.submitting = false;
-                        return;
-                    }
-                }
-            }
+            const categoryPromise = !this.kategoriId && this.kategoriSearch.trim() ?
+                this.addKategoriFromSearch() : Promise.resolve(null);
+            const unitPromise = !this.satuanId && this.satuanSearch.trim() ?
+                this.addSatuanFromSearch() : Promise.resolve(null);
+            const [createdKat, createdSat] = await Promise.all([categoryPromise, unitPromise]);
 
-            if (!this.satuanId && this.satuanSearch.trim()) {
-                const matchedSat = this.findMatchingSatuan(this.satuanSearch);
-                if (matchedSat) {
-                    this.selectSatuan(matchedSat);
-                } else {
-                    const createdSat = await this.addSatuanFromSearch();
-                    if (!createdSat) {
-                        this.submitting = false;
-                        return;
-                    }
-                }
+            if ((!this.kategoriId && this.kategoriSearch.trim() && !createdKat) ||
+                (!this.satuanId && this.satuanSearch.trim() && !createdSat)) {
+                this.submitting = false;
+                return;
             }
 
             if (!this.kategoriId || !this.satuanId) {

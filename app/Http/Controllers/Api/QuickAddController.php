@@ -21,11 +21,6 @@ use Illuminate\Validation\ValidationException;
 
 final class QuickAddController extends Controller
 {
-    public function __construct(
-        private readonly MasterBarangService $masterBarangService,
-        private readonly SatuanService $satuanService,
-    ) {}
-
     public function checkSimilarity(Request $request): JsonResponse
     {
         $name = trim((string) $request->query('nama', ''));
@@ -60,7 +55,7 @@ final class QuickAddController extends Controller
         ]);
     }
 
-    public function storeBarang(Request $request): JsonResponse
+    public function storeBarang(Request $request, MasterBarangService $masterBarangService): JsonResponse
     {
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
@@ -77,7 +72,7 @@ final class QuickAddController extends Controller
             $companyCode = 'BRG-'.strtoupper(Str::random(10));
         }
 
-        $masterBarang = $this->masterBarangService->findOrCreateForLocalCode(
+        $masterBarang = $masterBarangService->findOrCreateForLocalCode(
             $companyCode,
             trim($validated['nama']),
             (int) $validated['kategori_id'],
@@ -93,7 +88,7 @@ final class QuickAddController extends Controller
         }
 
         if (! $barang) {
-            $barang = $this->masterBarangService->registerInWarehouse(
+            $barang = $masterBarangService->registerInWarehouse(
                 $masterBarang,
                 $gudang,
                 null,
@@ -146,7 +141,7 @@ final class QuickAddController extends Controller
         ]);
     }
 
-    public function storeSatuan(Request $request): JsonResponse
+    public function storeSatuan(Request $request, SatuanService $satuanService): JsonResponse
     {
         $validated = $request->validate([
             'kode' => ['required', 'string', 'max:100'],
@@ -162,7 +157,7 @@ final class QuickAddController extends Controller
 
         $satuan = Satuan::query()->whereRaw('LOWER(kode) = ?', [$normalized['kode']])->first();
         if (! $satuan) {
-            $satuan = $this->satuanService->create([
+            $satuan = $satuanService->create([
                 'kode' => $validated['kode'],
                 'nama' => $validated['nama'] ?? '',
                 'is_aktif' => true,
