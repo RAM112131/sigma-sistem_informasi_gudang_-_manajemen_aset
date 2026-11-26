@@ -11,6 +11,7 @@ use App\Models\PenerimaanBarangStoreDetail;
 use App\Models\Satuan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -80,6 +81,8 @@ final class PenerimaanStoreMoreQuantityTest extends TestCase
         ]);
         $date = today()->format('dmY');
         $receiptNumber = "RCV-STR-{$date}001-0001";
+        config(['queue.default' => 'sync']);
+        Log::spy();
 
         $response = $this->actingAs($user)->post(route('store.penerimaan.store'), [
             'tanggal_diterima' => today()->toDateString(),
@@ -135,5 +138,10 @@ final class PenerimaanStoreMoreQuantityTest extends TestCase
         ]);
         $this->assertSame(1, PenerimaanBarangStore::query()->count());
         $this->assertSame(1, PenerimaanBarangStoreDetail::query()->count());
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('Store receipt embedding skipped because the queue connection is synchronous.', [
+                'receipt_id' => PenerimaanBarangStore::query()->where('nomor_penerimaan', $receiptNumber)->value('id'),
+            ]);
     }
 }

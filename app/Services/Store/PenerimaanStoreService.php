@@ -13,7 +13,9 @@ use App\Models\Satuan;
 use App\Services\SemanticVectorSearch;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 final readonly class PenerimaanStoreService
@@ -181,6 +183,7 @@ final readonly class PenerimaanStoreService
             $sequence = $this->receiptNumberOptions($existingReceipts->all(), $date)['nextSequence'];
             $nomorPenerimaanList = [];
             $detailRows = [];
+            $receiptsForEmbedding = [];
             $timestamp = now();
 
             foreach ($sourceGroups as $sourceGroup) {
@@ -237,14 +240,35 @@ final readonly class PenerimaanStoreService
                     ];
                 }
 
-                GenerateVectorEmbedding::dispatch($penerimaanHeader, $penerimaanHeader->getSemanticText())
-                    ->afterCommit();
-
+                $receiptsForEmbedding[] = $penerimaanHeader;
                 $nomorPenerimaanList[] = $nomorPenerimaan;
             }
 
             foreach (array_chunk($detailRows, 500) as $detailChunk) {
                 DB::table('penerimaan_barang_store_details')->insert($detailChunk);
+            }
+
+            $queueConnection = (string) config('queue.default');
+            $queueDriver = config("queue.connections.{$queueConnection}.driver");
+
+            foreach ($receiptsForEmbedding as $receipt) {
+                if ($queueDriver === 'sync') {
+                    Log::warning('Store receipt embedding skipped because the queue connection is synchronous.', [
+                        'receipt_id' => $receipt->id,
+                    ]);
+
+                    continue;
+                }
+
+                $semanticText = $receipt->getSemanticText();
+
+                DB::afterCommit(static function () use ($receipt, $semanticText): void {
+                    try {
+                        Bus::dispatch(new GenerateVectorEmbedding($receipt, $semanticText));
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                    }
+                });
             }
 
             return [
