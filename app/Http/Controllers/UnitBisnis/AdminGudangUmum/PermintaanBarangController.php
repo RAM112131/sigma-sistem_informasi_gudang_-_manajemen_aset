@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\UnitBisnis\AdminGudangUmum;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UnitBisnis\AdminGudangUmum\IndexPermintaanBarangRequest;
+use App\Http\Requests\UnitBisnis\AdminGudangUmum\SearchPermintaanBarangRequest;
 use App\Http\Requests\UnitBisnis\AdminGudangUmum\StorePermintaanBarangRequest;
 use App\Models\User;
 use App\Services\UnitBisnis\AdminGudangUmumService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 final class PermintaanBarangController extends Controller
@@ -20,16 +20,12 @@ final class PermintaanBarangController extends Controller
         private readonly AdminGudangUmumService $adminService,
     ) {}
 
-    public function index(Request $request): View
+    public function index(IndexPermintaanBarangRequest $request): View
     {
         $user = $request->user();
         abort_unless($user instanceof User, 401);
 
-        $filters = $request->validate([
-            'status' => ['nullable', Rule::in(['baru', 'diproses', 'selesai', 'ditolak'])],
-            'search' => ['nullable', 'string', 'max:100'],
-            'gudang_id' => ['nullable', 'integer'],
-        ]);
+        $filters = $request->validated();
 
         return view('unit-bisnis.admin-gudang-umum.permintaan.index', [
             ...$this->adminService->getPermintaanPageData(
@@ -41,15 +37,12 @@ final class PermintaanBarangController extends Controller
         ]);
     }
 
-    public function cariBarang(Request $request): JsonResponse
+    public function cariBarang(SearchPermintaanBarangRequest $request): JsonResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User, 401);
 
-        $request->merge(['q' => trim((string) $request->input('q'))]);
-        $validated = $request->validate([
-            'q' => ['required', 'string', 'min:1', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $barangs = $this->adminService->searchPermintaanBarang(
             $user,

@@ -38,6 +38,7 @@ final class MasterBarangControllerTest extends TestCase
             'jenis' => 'gudang_umum',
             'is_aktif' => true,
         ]);
+        $user->gudang()->attach($gudang);
         Barang::create([
             'master_barang_id' => $masterBarang->id,
             'gudang_id' => $gudang->id,

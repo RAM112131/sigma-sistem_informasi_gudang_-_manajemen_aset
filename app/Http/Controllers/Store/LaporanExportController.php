@@ -12,10 +12,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Store\LaporanExportRequest;
 use App\Http\Requests\Store\LaporanPreviewRequest;
 use App\Models\Gudang;
-use App\Models\User;
 use App\Services\Laporan\LaporanPreviewService;
 use App\Services\Laporan\LaporanQueryService;
-use App\Services\Store\GudangStoreService;
+use App\Services\Shared\ActiveGudangResolver;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,7 +31,7 @@ final class LaporanExportController extends Controller
         'pembelian_tunai_transfer',
     ];
 
-    public function __construct(private readonly GudangStoreService $gudangStoreService) {}
+    public function __construct(private readonly ActiveGudangResolver $gudangResolver) {}
 
     public function preview(
         LaporanPreviewRequest $request,
@@ -104,17 +103,6 @@ final class LaporanExportController extends Controller
 
     private function resolveStoreGudang(Request $request): Gudang
     {
-        $user = $request->user();
-        abort_unless($user instanceof User, 403);
-        $gudang = $this->gudangStoreService->resolveAssignedWarehouse(
-            $user,
-            $request->query('gudang_id'),
-            ['holding', 'global_master', 'gudang_store'],
-            [],
-            session('active_gudang_id'),
-        );
-        session(['active_gudang_id' => $gudang->id]);
-
-        return $gudang;
+        return $this->gudangResolver->resolveStore($request, []);
     }
 }

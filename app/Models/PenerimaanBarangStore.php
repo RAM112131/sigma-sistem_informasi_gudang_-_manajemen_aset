@@ -35,11 +35,17 @@ class PenerimaanBarangStore extends Model
         'tanggal_diterima',
     ];
 
-    protected $casts = [
-        'tanpa_surat_jalan' => 'boolean',
-        'tanggal_diterima' => 'datetime',
-        'source_groups' => 'array',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'tanpa_surat_jalan' => 'boolean',
+            'tanggal_diterima' => 'datetime',
+            'source_groups' => 'array',
+        ];
+    }
 
     public function gudang(): BelongsTo
     {

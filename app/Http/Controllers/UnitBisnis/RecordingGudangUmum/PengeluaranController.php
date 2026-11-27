@@ -15,7 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-class PengeluaranController extends Controller
+final class PengeluaranController extends Controller
 {
     public function __construct(
         private readonly RecordingGudangUmumService $recordingService,

@@ -27,6 +27,10 @@ final class RoleControllerTest extends TestCase
         $admin->assignRole($superAdminRole);
         $this->createUser('active-auditor', true)->assignRole($customRole);
         $this->createUser('inactive-auditor', false)->assignRole($customRole);
+        $permissionCacheStore = config('permission.cache.store');
+        if (! is_string($permissionCacheStore) || $permissionCacheStore === 'default') {
+            $permissionCacheStore = (string) config('cache.default');
+        }
 
         $response = $this->actingAs($admin)->get(route('admin.roles.index'));
 
@@ -35,7 +39,7 @@ final class RoleControllerTest extends TestCase
             && $stats['custom_roles'] === 1
             && $stats['total_permissions'] === 2
             && $stats['assigned_users'] === 2
-            && $stats['permission_cache_store'] === config('cache.default'));
+            && $stats['permission_cache_store'] === $permissionCacheStore);
         $response->assertViewHas('roles', fn ($roles): bool => $roles->firstWhere('name', 'Auditor Custom')['active_users_count'] === 1);
         $response->assertSee('Role &amp; Permission', false);
         $response->assertSee('Auditor Custom');
@@ -242,14 +246,19 @@ final class RoleControllerTest extends TestCase
     {
         $admin = $this->createSuperAdmin();
         $cacheKey = config('permission.cache.key');
-        Cache::put($cacheKey, ['cached' => true]);
+        $permissionCacheStore = config('permission.cache.store');
+        if (! is_string($permissionCacheStore) || $permissionCacheStore === 'default') {
+            $permissionCacheStore = (string) config('cache.default');
+        }
+        $permissionCache = Cache::store($permissionCacheStore);
+        $permissionCache->put($cacheKey, ['cached' => true]);
 
         $this->actingAs($admin)
             ->post(route('admin.roles.cache-sync'))
             ->assertRedirect(route('admin.roles.index'))
             ->assertSessionHas('success', 'Cache permission berhasil disinkronisasi.');
 
-        $this->assertFalse(Cache::has($cacheKey));
+        $this->assertFalse($permissionCache->has($cacheKey));
     }
 
     public function test_cache_sync_is_forbidden_to_users_without_super_admin_role(): void

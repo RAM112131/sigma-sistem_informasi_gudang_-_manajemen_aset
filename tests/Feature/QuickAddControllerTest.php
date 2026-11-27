@@ -168,4 +168,91 @@ final class QuickAddControllerTest extends TestCase
         $this->assertSame(0, Barang::query()->count());
         $this->assertSame(1, MasterBarang::query()->count());
     }
+
+    public function test_quick_add_check_similarity_returns_matching_active_items_for_warehouse(): void
+    {
+        $user = User::factory()->create();
+        $gudang = Gudang::create([
+            'kode' => 'SIM-GUDANG',
+            'nama' => 'Gudang Store',
+            'jenis' => 'gudang_store',
+            'is_aktif' => true,
+        ]);
+        $user->gudang()->attach($gudang);
+        $category = KategoriBarang::create(['nama' => 'Kemasan', 'is_aktif' => true]);
+        $unit = Satuan::create(['kode' => 'PCS-SIM', 'nama' => 'Pieces', 'is_aktif' => true]);
+
+        Barang::create([
+            'gudang_id' => $gudang->id,
+            'kategori_id' => $category->id,
+            'satuan_id' => $unit->id,
+            'kode' => 'SIM-001',
+            'nama' => 'Plastik Vacuum Roll',
+            'minimum_stok' => 5,
+            'is_aktif' => true,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_gudang_id' => $gudang->id])
+            ->getJson('/api/quick-add/check-similarity?nama=Plastik');
+
+        $response->assertOk()
+            ->assertJsonPath('has_similar', true)
+            ->assertJsonPath('similar_items.0.kode', 'SIM-001')
+            ->assertJsonPath('similar_items.0.kategori', 'Kemasan')
+            ->assertJsonPath('similar_items.0.satuan', 'Pieces');
+    }
+
+    public function test_quick_add_barang_rejects_inactive_kategori_and_satuan(): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $user = User::factory()->create();
+        $user->givePermissionTo(Permission::findOrCreate('barang.create', 'web'));
+        $gudang = Gudang::create([
+            'kode' => 'INACTIVE-REF-GUDANG',
+            'nama' => 'Gudang Store',
+            'jenis' => 'gudang_store',
+            'is_aktif' => true,
+        ]);
+        $user->gudang()->attach($gudang);
+        $category = KategoriBarang::create(['nama' => 'Nonaktif Kat', 'is_aktif' => false]);
+        $unit = Satuan::create(['kode' => 'OFF', 'nama' => 'Nonaktif Sat', 'is_aktif' => false]);
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_gudang_id' => $gudang->id])
+            ->postJson('/api/quick-add/barang', [
+                'nama' => 'Barang Ref Nonaktif',
+                'kategori_id' => $category->id,
+                'satuan_id' => $unit->id,
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['kategori_id', 'satuan_id']);
+    }
+
+    public function test_quick_add_endpoints_require_authentication_and_permissions(): void
+    {
+        $this->postJson('/api/quick-add/barang', ['nama' => 'Test'])
+            ->assertUnauthorized();
+
+        $this->postJson('/api/quick-add/kategori', ['nama' => 'Test'])
+            ->assertUnauthorized();
+
+        $this->postJson('/api/quick-add/satuan', ['kode' => 'pcs'])
+            ->assertUnauthorized();
+
+        $userWithoutPermissions = User::factory()->create();
+
+        $this->actingAs($userWithoutPermissions)
+            ->postJson('/api/quick-add/barang', ['nama' => 'Test'])
+            ->assertForbidden();
+
+        $this->actingAs($userWithoutPermissions)
+            ->postJson('/api/quick-add/kategori', ['nama' => 'Test'])
+            ->assertForbidden();
+
+        $this->actingAs($userWithoutPermissions)
+            ->postJson('/api/quick-add/satuan', ['kode' => 'pcs'])
+            ->assertForbidden();
+    }
 }

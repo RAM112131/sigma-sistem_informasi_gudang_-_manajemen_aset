@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SuperAdmin\FilterActivityLogRequest;
 use App\Models\AuditLog;
 use App\Services\SuperAdmin\ActivityLogService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -25,9 +24,9 @@ final class ActivityLogController extends Controller
     /**
      * Display a paginated, filterable listing of activity records.
      */
-    public function index(Request $request): View
+    public function index(FilterActivityLogRequest $request): View
     {
-        $filters = $this->validatedFilters($request);
+        $filters = $request->normalizedFilters();
         $data = $this->activityLogService->getListingData($filters);
         $viewName = view()->exists('super-admin.activity-log.index') ? 'super-admin.activity-log.index' : 'admin.activity-log.index';
 
@@ -40,17 +39,16 @@ final class ActivityLogController extends Controller
     /**
      * Return the full, read-only details for one audit record.
      */
-    public function show(Request $request, AuditLog $auditLog): JsonResponse
+    public function show(FilterActivityLogRequest $request, AuditLog $auditLog): JsonResponse
     {
-        $direction = $request->validate([
-            'direction' => ['nullable', Rule::in(['previous', 'next'])],
-        ])['direction'] ?? null;
+        $filters = $request->normalizedFilters();
+        $direction = $filters['direction'] ?? null;
 
         if ($direction !== null) {
             $auditLog = $this->activityLogService->adjacentLog(
                 $auditLog,
                 $direction,
-                $this->validatedFilters($request),
+                $filters,
             );
             abort_if($auditLog === null, 404);
         }
@@ -61,9 +59,9 @@ final class ActivityLogController extends Controller
     /**
      * Stream the currently filtered audit records as CSV or JSON.
      */
-    public function export(Request $request): StreamedResponse
+    public function export(FilterActivityLogRequest $request): StreamedResponse
     {
-        $filters = $this->validatedFilters($request, includeFormat: true);
+        $filters = $request->normalizedFilters();
         $format = $filters['format'];
         $filename = 'log-aktivitas-'.now()->format('Y-m-d').'.'.$format;
         $contentType = $format === 'csv'
@@ -96,31 +94,6 @@ final class ActivityLogController extends Controller
         return redirect()
             ->route('admin.activity-log.index')
             ->with('success', 'Semua catatan log aktivitas berhasil dihapus.');
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function validatedFilters(Request $request, bool $includeFormat = false): array
-    {
-        $rules = [
-            'search' => ['nullable', 'string', 'max:100'],
-            'operator' => ['nullable', 'integer', Rule::exists('users', 'id')],
-            'action' => ['nullable', 'string', 'max:20'],
-            'subject' => ['nullable', 'string', 'max:255'],
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
-        ];
-
-        if ($includeFormat) {
-            $rules['format'] = ['required', Rule::in(['csv', 'json'])];
-        }
-
-        $filters = $request->validate($rules);
-        $filters['search'] = trim($filters['search'] ?? '');
-        $filters['subject'] = $filters['subject'] ?? '';
-
-        return $filters;
     }
 
     /**

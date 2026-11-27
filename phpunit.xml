@@ -19,15 +19,16 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing" force="true"/>
+        <env name="TRUSTED_PROXIES" value="192.0.2.1" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
         <!-- Bypass an application config cache so test database overrides take effect. -->
         <env name="APP_CONFIG_CACHE" value="bootstrap/cache/config.testing.php" force="true"/>
-        <!-- Isolate RefreshDatabase tests from the application's db_wms database. -->
-        <env name="DB_CONNECTION" value="pgsql" force="true"/>
-        <env name="DB_DATABASE" value="db_wms_test" force="true"/>
+        <!-- Isolate RefreshDatabase tests in an in-memory SQLite database. -->
+        <env name="DB_CONNECTION" value="sqlite" force="true"/>
+        <env name="DB_DATABASE" value=":memory:" force="true"/>
         <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

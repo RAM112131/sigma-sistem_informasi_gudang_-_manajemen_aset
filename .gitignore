@@ -30,3 +30,9 @@ Thumbs.db
 
 .vercel
 .env*
+
+/.agents/
+/.github/
+/.ai/
+/AGENTS.md
+/Doc/

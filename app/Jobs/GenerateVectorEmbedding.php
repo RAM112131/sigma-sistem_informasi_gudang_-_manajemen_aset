@@ -6,7 +6,6 @@ use App\Services\EmbeddingGenerator;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Schema;
 
 class GenerateVectorEmbedding implements ShouldQueue
 {
@@ -32,7 +31,7 @@ class GenerateVectorEmbedding implements ShouldQueue
      */
     public function handle(EmbeddingGenerator $embeddingGenerator): void
     {
-        if (trim($this->textToEmbed) === '' || ! Schema::hasColumn($this->model->getTable(), 'embedding_search')) {
+        if (trim($this->textToEmbed) === '') {
             return;
         }
 

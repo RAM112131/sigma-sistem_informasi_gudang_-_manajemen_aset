@@ -6,8 +6,8 @@ namespace App\Http\Controllers\Store;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Shared\ActiveGudangResolver;
 use App\Services\Store\DashboardStoreService;
-use App\Services\Store\GudangStoreService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -15,7 +15,7 @@ final class DashboardStoreController extends Controller
 {
     public function __construct(
         private readonly DashboardStoreService $dashboardService,
-        private readonly GudangStoreService $gudangStoreService,
+        private readonly ActiveGudangResolver $gudangResolver,
     ) {}
 
     /**
@@ -25,21 +25,14 @@ final class DashboardStoreController extends Controller
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
-        $gudangStore = $this->gudangStoreService->resolveAssignedWarehouse(
-            $user,
-            $request->query('gudang_id'),
-            ['holding', 'global_master', 'gudang_store'],
-            [
-                'store_stok.read',
-                'store_penerimaan.read',
-                'store_pengeluaran.read',
-                'store_laporan.read',
-                'store.view',
-                'store.read',
-            ],
-            session('active_gudang_id'),
-        );
-        session(['active_gudang_id' => $gudangStore->id]);
+        $gudangStore = $this->gudangResolver->resolveStore($request, [
+            'store_stok.read',
+            'store_penerimaan.read',
+            'store_pengeluaran.read',
+            'store_laporan.read',
+            'store.view',
+            'store.read',
+        ]);
 
         $dashboardData = $this->dashboardService->getDashboardData($gudangStore);
 

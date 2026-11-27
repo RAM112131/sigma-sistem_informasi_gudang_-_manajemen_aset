@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
@@ -85,5 +87,59 @@ class ActivityLoggingTest extends TestCase
             'causer_type' => User::class,
             'action' => 'read',
         ]);
+    }
+
+    public function test_loggable_stores_null_causer_when_no_authenticated_user(): void
+    {
+        // Simulasi konteks CLI/queue — tidak ada user yang login
+        Auth::logout();
+
+        $user = User::withoutEvents(fn (): User => User::factory()->create([
+            'is_aktif' => true,
+        ]));
+
+        // Update langsung tanpa auth — Loggable harus menyimpan causer_id = null
+        $user->is_aktif = false;
+        $user->save();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'subject_type' => User::class,
+            'subject_id' => $user->id,
+            'action' => 'updated',
+            'causer_id' => null,
+            'causer_type' => null,
+        ]);
+    }
+
+    public function test_loggable_excludes_hidden_fields_from_change_log(): void
+    {
+        $user = User::withoutEvents(fn (): User => User::factory()->create([
+            'is_aktif' => true,
+            'password' => Hash::make('original'),
+        ]));
+
+        // Update password dan field lain — password tidak boleh tersimpan di audit log
+        $user->password = Hash::make('newpassword');
+        $user->is_aktif = false;
+        $user->save();
+
+        /** @var AuditLog|null $log */
+        $log = AuditLog::where('subject_type', User::class)
+            ->where('subject_id', $user->id)
+            ->where('action', 'updated')
+            ->latest()
+            ->first();
+
+        $this->assertNotNull($log, 'Audit log harus ada setelah update user');
+        $changes = json_decode((string) $log->getRawOriginal('changes'), true, flags: JSON_THROW_ON_ERROR);
+
+        if (is_string($changes)) {
+            $changes = json_decode($changes, true, flags: JSON_THROW_ON_ERROR);
+        }
+
+        $this->assertIsArray($changes);
+        $this->assertArrayNotHasKey('password', $changes['sebelum']);
+        $this->assertArrayNotHasKey('remember_token', $changes['sebelum']);
+        $this->assertArrayHasKey('is_aktif', $changes['sebelum']);
     }
 }

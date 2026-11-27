@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SuperAdmin\IndexDashboardRequest;
 use App\Services\SuperAdmin\DashboardService;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 final class DashboardController extends Controller
@@ -15,19 +15,13 @@ final class DashboardController extends Controller
         private readonly DashboardService $dashboardService,
     ) {}
 
-    public function __invoke(Request $request): View
+    public function __invoke(IndexDashboardRequest $request): View
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'role' => ['nullable', 'string', 'exists:roles,name'],
-            'status' => ['nullable', 'in:active,inactive'],
-        ]);
+        $filters = $request->validated();
 
         $data = $this->dashboardService->getDashboardData($filters);
 
-        $viewName = view()->exists('super-admin.dashboard') ? 'super-admin.dashboard' : 'admin.dashboard';
-
-        return view($viewName, [
+        return view('super-admin.dashboard', [
             ...$data,
             'filters' => $filters,
             'recentSystemLogsCount' => $data['recentSystemLogs']->count(),

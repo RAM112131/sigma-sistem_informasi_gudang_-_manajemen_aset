@@ -8,8 +8,10 @@ use App\Models\Barang;
 use App\Models\DivisiPeminta;
 use App\Models\Gudang;
 use App\Models\PengeluaranUnit;
+use App\Models\PengembalianUnit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -46,11 +48,13 @@ final class RecordingGUPengeluaranPersistenceTest extends TestCase
             ->assertJsonPath('data.bpb', 'OUT-UNI-20261104001-0001');
 
         $this->assertDatabaseCount('pengeluaran_units', 2);
-        $this->assertDatabaseHas('pengeluaran_units', [
-            'nomor_bpb' => 'OUT-UNI-20261104001-0001',
-            'gudang_id' => $gudang->id,
-            'tanggal' => '2026-11-04',
-        ]);
+        self::assertTrue(
+            PengeluaranUnit::query()
+                ->where('nomor_bpb', 'OUT-UNI-20261104001-0001')
+                ->where('gudang_id', $gudang->id)
+                ->whereDate('tanggal', '2026-11-04')
+                ->exists(),
+        );
     }
 
     public function test_recording_gu_saves_and_accumulates_entries_for_the_same_day_and_requester(): void
@@ -92,10 +96,11 @@ final class RecordingGUPengeluaranPersistenceTest extends TestCase
         $this->assertDatabaseHas('pengeluaran_units', [
             'id' => $transactionId,
             'gudang_id' => $gudang->id,
-            'tanggal' => '2026-10-29',
             'bagian_peminta' => 'Produksi',
-            'waktu_keluar' => '11:45:00',
         ]);
+        $transaction = PengeluaranUnit::query()->findOrFail($transactionId);
+        self::assertSame('2026-10-29', $transaction->tanggal->toDateString());
+        self::assertSame('11:45', Carbon::parse((string) $transaction->waktu_keluar)->format('H:i'));
         $area = DivisiPeminta::query()
             ->where('gudang_id', $gudang->id)
             ->where('nama', 'Produksi')
@@ -188,14 +193,16 @@ final class RecordingGUPengeluaranPersistenceTest extends TestCase
             ->where('gudang_id', $gudang->id)
             ->whereDate('tanggal', '2026-10-30')
             ->firstOrFail();
-        $this->assertDatabaseHas('pengembalian_units', [
-            'gudang_id' => $gudang->id,
-            'pengeluaran_unit_id' => $latestIssue->id,
-            'barang_id' => $barang->id,
-            'bagian_peminta' => 'Produksi',
-            'qty_kembali' => 1.5,
-            'tanggal_kembali' => '2026-11-04',
-        ]);
+        self::assertTrue(
+            PengembalianUnit::query()
+                ->where('gudang_id', $gudang->id)
+                ->where('pengeluaran_unit_id', $latestIssue->id)
+                ->where('barang_id', $barang->id)
+                ->where('bagian_peminta', 'Produksi')
+                ->where('qty_kembali', 1.5)
+                ->whereDate('tanggal_kembali', '2026-11-04')
+                ->exists(),
+        );
     }
 
     public function test_recording_gu_cannot_return_more_than_requester_outstanding_quantity(): void

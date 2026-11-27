@@ -1,0 +1,19 @@
+.expense-tabs {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                border-bottom: 2px solid var(--surface-border);
+                margin-bottom: 12px;
+            }
+
+            .expense-tabs .btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-height: 36px;
+                padding: 4px 12px;
+                font-size: 0.85rem;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+            }

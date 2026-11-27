@@ -1,0 +1,447 @@
+.stocktake-dashboard {
+            --stocktake-helper: 12px;
+            min-width: 0;
+            color: var(--text-primary);
+        }
+
+        .stocktake-page-title {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .stocktake-page-description {
+            color: var(--text-muted);
+            font-size: var(--stocktake-helper);
+            line-height: 1.4;
+        }
+
+        .stocktake-period-badge,
+        .stocktake-state-badge {
+            border-radius: var(--radius);
+            font-size: var(--stocktake-helper);
+            font-weight: 800;
+        }
+
+        .stocktake-state-badge.is-applied {
+            background: rgba(63, 122, 82, .12);
+            color: var(--status-success);
+        }
+
+        .stocktake-state-badge.is-draft {
+            background: rgba(184, 121, 26, .12);
+            color: var(--status-warning);
+        }
+
+        .stocktake-control,
+        .stocktake-print-action {
+            min-height: 38px;
+            border-color: var(--surface-border);
+            border-radius: var(--radius);
+            font-size: var(--stocktake-helper);
+        }
+
+        .stocktake-control:focus-visible,
+        .stocktake-print-action:focus-visible,
+        .stocktake-search-form :focus-visible,
+        .stocktake-status-tab:focus-visible,
+        .stocktake-pagination a:focus-visible,
+        .stocktake-pagination select:focus-visible,
+        .stocktake-actions button:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+        }
+
+        .stocktake-print-action {
+            background: var(--surface-card);
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .stocktake-print-action:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+
+        .stocktake-print-action.is-disabled {
+            background: var(--surface-base);
+            color: var(--text-muted);
+        }
+
+        .stocktake-feedback {
+            border-radius: var(--radius-lg);
+        }
+
+        .stocktake-kpis {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .stocktake-kpi {
+            --kpi-accent: var(--brand-primary);
+            position: relative;
+            min-width: 0;
+            min-height: 108px;
+            gap: 4px;
+            overflow: hidden;
+            padding: 12px 14px 10px;
+            border: 1px solid var(--surface-border);
+            border-top: 3px solid var(--kpi-accent);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-primary);
+        }
+
+        .stocktake-kpi:nth-child(1) {
+            --kpi-accent: var(--status-neutral);
+        }
+
+        .stocktake-kpi:nth-child(2) {
+            --kpi-accent: var(--status-success);
+        }
+
+        .stocktake-kpi:nth-child(3) {
+            --kpi-accent: var(--status-critical);
+        }
+
+        .stocktake-kpi:nth-child(4) {
+            --kpi-accent: var(--brand-primary);
+        }
+
+        .stocktake-kpi:nth-child(5) {
+            --kpi-accent: var(--brand-accent);
+        }
+
+        .stocktake-kpi-heading {
+            padding-right: 26px;
+            color: var(--text-muted);
+            font-size: var(--stocktake-helper);
+            font-weight: 800;
+            letter-spacing: .055em;
+            line-height: 1.2;
+        }
+
+        .stocktake-kpi-icon {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            color: var(--kpi-accent);
+        }
+
+        .stocktake-kpi-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .stocktake-kpi-value {
+            color: var(--text-primary);
+            font-size: 24px;
+            font-weight: 850;
+            line-height: 1.15;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stocktake-kpi-foot {
+            width: fit-content;
+            max-width: 100%;
+            padding: 3px 5px;
+            border-radius: 3px;
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: var(--stocktake-helper);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .stocktake-kpi:nth-child(2) .stocktake-kpi-foot {
+            background: rgba(63, 122, 82, .12);
+            color: var(--status-success);
+        }
+
+        .stocktake-kpi:nth-child(3) .stocktake-kpi-foot {
+            background: rgba(193, 68, 60, .12);
+            color: var(--status-critical);
+        }
+
+        .stocktake-kpi:nth-child(4) .stocktake-kpi-foot {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+        }
+
+        .stocktake-panel {
+            border-color: var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+        }
+
+        .stocktake-status-filters {
+            min-width: 0;
+            flex: 1 1 auto;
+            flex-wrap: nowrap;
+            gap: 3px;
+        }
+
+        .stocktake-status-tab {
+            min-height: 36px;
+            flex: 0 0 auto;
+            padding: 0 8px;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: var(--stocktake-helper);
+            white-space: nowrap;
+        }
+
+        .stocktake-status-tab:hover {
+            border-color: var(--surface-border);
+            color: var(--brand-primary);
+        }
+
+        .stocktake-status-tab[aria-current="page"] {
+            border-color: var(--brand-primary);
+            background: var(--brand-primary);
+            color: #fff;
+        }
+
+        .stocktake-lock-notice {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: var(--stocktake-helper);
+            line-height: 1.4;
+        }
+
+        .stocktake-filter-bar {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 14px;
+            border-color: var(--surface-border);
+        }
+
+        .stocktake-search-form {
+            min-width: 220px;
+            flex: 0 1 320px;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stocktake-search {
+            width: auto;
+            min-width: 0;
+            flex: 1 1 auto;
+            height: 38px;
+            padding-left: 36px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+        }
+
+        .stocktake-search svg {
+            top: 11px;
+            left: 10px;
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+        }
+
+        .stocktake-search-input {
+            height: 100%;
+            min-height: 0;
+            padding: 0 10px 0 0;
+            border: 0;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: var(--stocktake-helper);
+        }
+
+        .stocktake-search-input::placeholder {
+            color: var(--text-subtle);
+        }
+
+        .stocktake-search-input:focus {
+            border: 0;
+            outline: 0;
+            box-shadow: none;
+        }
+
+        .stocktake-search-submit {
+            min-height: 38px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--brand-primary);
+            font-size: var(--stocktake-helper);
+            font-weight: 800;
+        }
+
+        .stocktake-search-submit:hover {
+            border-color: var(--brand-primary);
+            background: var(--surface-base);
+        }
+
+        .stocktake-table {
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .stocktake-table thead {
+            background: var(--surface-base);
+            color: var(--text-muted);
+        }
+
+        .stocktake-table th {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--surface-border);
+            font-size: var(--stocktake-helper);
+            font-weight: 800;
+            letter-spacing: .035em;
+        }
+
+        .stocktake-table td {
+            border-bottom: 1px solid #edf2f0;
+            font-size: var(--stocktake-helper);
+        }
+
+        .stocktake-pagination {
+            min-height: 46px;
+            padding: 8px 12px;
+            border-color: var(--surface-border);
+            color: var(--text-muted);
+        }
+
+        .stocktake-pagination a,
+        .stocktake-pagination select {
+            border-radius: var(--radius);
+            font-size: var(--stocktake-helper);
+        }
+
+        .stocktake-note {
+            border-color: var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+        }
+
+        .stocktake-actions {
+            border-color: var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: 0 2px 8px rgba(31, 37, 35, .08);
+        }
+
+        @media (max-width: 1200px) {
+            .stocktake-kpis {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 820px) {
+            .stocktake-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .stocktake-kpi {
+                min-height: 100px;
+                padding: 10px;
+            }
+
+            .stocktake-kpi-value {
+                font-size: 22px;
+            }
+
+            .stocktake-filter-bar {
+                flex-wrap: wrap;
+            }
+
+            .stocktake-status-filters {
+                width: 100%;
+                flex: 1 1 100%;
+                flex-wrap: wrap;
+            }
+
+            .stocktake-search-form {
+                width: 100%;
+                min-width: 0;
+                flex: 1 1 100%;
+            }
+        }
+
+        @media (max-width: 600px) {
+
+            .stocktake-page-controls,
+            .stocktake-period-form {
+                width: 100%;
+            }
+
+            .stocktake-control {
+                min-height: 44px;
+            }
+
+            .stocktake-print-action,
+            .stocktake-status-tab {
+                min-height: 44px;
+            }
+
+            .stocktake-page-header {
+                align-items: stretch;
+            }
+
+            .stocktake-status-filters {
+                width: 100%;
+                flex-wrap: nowrap;
+                justify-content: flex-start;
+                overflow-x: auto;
+            }
+
+            .stocktake-filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .stocktake-search-form {
+                width: 100%;
+            }
+
+            .stocktake-search {
+                width: 100%;
+            }
+
+            .stocktake-search-submit {
+                min-height: 44px;
+            }
+
+            .stocktake-table button {
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            .stocktake-table input:not([type="hidden"]) {
+                min-height: 44px;
+            }
+
+            .stocktake-pagination a {
+                min-width: 44px;
+                height: 44px;
+            }
+
+            .stocktake-pagination select {
+                min-height: 44px;
+            }
+
+            .stocktake-actions button {
+                min-height: 44px;
+            }
+
+            .stocktake-actions {
+                bottom: 8px;
+            }
+        }

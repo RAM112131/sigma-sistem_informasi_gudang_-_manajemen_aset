@@ -1,0 +1,156 @@
+.physical-stock-edit-page {
+            display: flex;
+            max-width: 900px;
+            flex-direction: column;
+            gap: 16px;
+            color: var(--text-primary);
+        }
+
+        .physical-stock-edit-header h1 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 24px;
+            font-weight: 850;
+            line-height: 1.2;
+        }
+
+        .physical-stock-edit-header p {
+            margin: 5px 0 0;
+            color: var(--text-muted);
+            font-size: .875rem;
+            line-height: 1.5;
+        }
+
+        .physical-stock-edit-card {
+            padding: 20px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+        }
+
+        .physical-stock-edit-notice {
+            margin-bottom: 18px;
+            padding: 12px 14px;
+            border: 1px solid rgba(184, 121, 26, .25);
+            border-radius: var(--radius);
+            background: rgba(184, 121, 26, .08);
+            color: var(--text-primary);
+            font-size: .82rem;
+            line-height: 1.5;
+        }
+
+        .physical-stock-edit-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .physical-stock-edit-field {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .physical-stock-edit-field.is-full {
+            grid-column: 1 / -1;
+        }
+
+        .physical-stock-edit-field label {
+            color: var(--text-primary);
+            font-size: .8rem;
+            font-weight: 700;
+        }
+
+        .physical-stock-edit-field input,
+        .physical-stock-edit-field select,
+        .physical-stock-edit-field textarea {
+            width: 100%;
+            min-height: 44px;
+            padding: 9px 11px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: .84rem;
+        }
+
+        .physical-stock-edit-field textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .physical-stock-edit-field input:focus-visible,
+        .physical-stock-edit-field select:focus-visible,
+        .physical-stock-edit-field textarea:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+        }
+
+        .physical-stock-edit-field .form-error {
+            margin: 0;
+            color: var(--status-critical);
+            font-size: .75rem;
+        }
+
+        .physical-stock-edit-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .physical-stock-edit-button {
+            display: inline-flex;
+            min-height: 44px;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 14px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            color: var(--text-primary);
+            font-size: .82rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .physical-stock-edit-button.is-primary {
+            border-color: var(--brand-primary);
+            background: var(--brand-primary);
+            color: #fff;
+        }
+
+        .physical-stock-edit-button:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 640px) {
+            .physical-stock-edit-header h1 {
+                font-size: 1.4rem;
+            }
+
+            .physical-stock-edit-card {
+                padding: 14px;
+            }
+
+            .physical-stock-edit-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .physical-stock-edit-field.is-full {
+                grid-column: auto;
+            }
+
+            .physical-stock-edit-actions {
+                flex-direction: column-reverse;
+            }
+
+            .physical-stock-edit-button {
+                width: 100%;
+            }
+        }

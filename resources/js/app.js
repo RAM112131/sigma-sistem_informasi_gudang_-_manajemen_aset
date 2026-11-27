@@ -1,11 +1,13 @@
   import Alpine from 'alpinejs';
   import { start as startTurbo } from '@hotwired/turbo';
   import { initMasterBarangImport } from './master-barang-import.js';
+  import { createQuickAddModal } from './quick-add-modal.js';
   import { createRecordingGuIssue } from './recording-gu-issue.js';
   import { createRecordingGuReceipt } from './recording-gu-receipt.js';
   import { createStocktakeRow } from './stok-opname.js';
 
   window.Alpine = Alpine;
+  Alpine.data('quickAddModal', createQuickAddModal);
   Alpine.data('recordingGuReceipt', createRecordingGuReceipt);
   Alpine.data('recordingGuIssue', createRecordingGuIssue);
   Alpine.data('stocktakeRow', createStocktakeRow);

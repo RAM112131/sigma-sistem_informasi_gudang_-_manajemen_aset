@@ -19,7 +19,7 @@ final class SatuanControllerTest extends TestCase
 
     public function test_listing_filters_units_and_shows_the_global_master_item_count(): void
     {
-        $user = User::factory()->create();
+        $user = $this->userWithPermission('satuan.read');
         $kilogram = Satuan::create(['kode' => 'kg', 'nama' => 'Kilogram', 'is_aktif' => true]);
         Satuan::create(['kode' => 'pcs', 'nama' => 'Pieces', 'is_aktif' => false]);
         MasterBarang::create([
@@ -38,7 +38,7 @@ final class SatuanControllerTest extends TestCase
         $response->assertOk()
             ->assertSeeText('Satuan bersifat global, dipakai semua gudang, dan dapat ditambah kapan pun.')
             ->assertSee('Kilogram')
-            ->assertSee('1 barang')
+            ->assertSeeText('1 barang')
             ->assertDontSee('Pieces')
             ->assertDontSee('Hapus')
             ->assertViewHas('satuans', fn (LengthAwarePaginator $satuans): bool => $satuans->total() === 1

@@ -28,11 +28,17 @@ class StokAwal extends Model
         'diinput_oleh',
     ];
 
-    protected $casts = [
-        'qty' => 'decimal:3',
-        'harga_awal' => 'decimal:2',
-        'tanggal_acuan' => 'date',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'qty' => 'decimal:3',
+            'harga_awal' => 'decimal:2',
+            'tanggal_acuan' => 'date',
+        ];
+    }
 
     public function gudang(): BelongsTo
     {

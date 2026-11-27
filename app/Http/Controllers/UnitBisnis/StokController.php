@@ -5,41 +5,39 @@ declare(strict_types=1);
 namespace App\Http\Controllers\UnitBisnis;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UnitBisnis\FilterUnitStockRequest;
 use App\Http\Requests\UnitBisnis\RecordingGudangUmum\AnalyzeUnitStockImportRequest;
 use App\Http\Requests\UnitBisnis\RecordingGudangUmum\ProcessUnitStockImportRequest;
+use App\Http\Requests\UnitBisnis\UpdateUnitStockRequest;
 use App\Models\Barang;
 use App\Models\Gudang;
 use App\Models\KategoriBarang;
 use App\Models\Satuan;
 use App\Models\User;
+use App\Services\Shared\ActiveGudangResolver;
 use App\Services\Store\StokService;
 use App\Services\UnitBisnis\UnitGudangService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class StokController extends Controller
+final class StokController extends Controller
 {
     public function __construct(
         protected readonly StokService $stokService,
         protected readonly UnitGudangService $unitGudangService,
+        protected readonly ActiveGudangResolver $gudangResolver,
     ) {}
 
-    public function index(Request $request): View
+    public function index(FilterUnitStockRequest $request): View
     {
         $activeGudang = $this->resolveUnitGudang($request);
         $user = $request->user();
 
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'q' => ['nullable', 'string', 'max:255'],
-            'kategori_id' => ['nullable', 'integer'],
-            'status' => ['nullable', 'in:aman,warning,kritis,critical'],
-        ]);
+        $filters = $request->validated();
         $search = trim($filters['search'] ?? '');
         $searchInputKey = 'search';
         if ($search === '') {
@@ -107,7 +105,7 @@ class StokController extends Controller
         ]);
     }
 
-    public function update(Request $request, Barang $barang): RedirectResponse
+    public function update(UpdateUnitStockRequest $request, Barang $barang): RedirectResponse
     {
         $activeGudang = $this->resolveUnitGudang($request);
         $this->authorizeStockMutation(
@@ -119,47 +117,7 @@ class StokController extends Controller
             ['Super Admin', 'super_admin', 'Admin Gudang Umum', 'admin_gudang_umum', 'Recording Gudang Umum', 'recording_gudang_umum'],
         );
 
-        $request->merge([
-            'kode' => strtoupper(trim((string) $request->input('kode'))),
-            'nama' => trim((string) $request->input('nama')),
-        ]);
-
-        $validated = $request->validate([
-            'kode' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('barangs', 'kode')
-                    ->where(fn ($query) => $query->where('gudang_id', $activeGudang->id))
-                    ->ignore($barang->id),
-            ],
-            'nama' => ['required', 'string', 'max:255'],
-            'kategori_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('kategori_barangs', 'id')->where(
-                    fn ($query) => $query->where('is_aktif', true)
-                        ->whereNull('deleted_at')
-                        ->where(fn ($warehouseQuery) => $warehouseQuery
-                            ->whereNull('gudang_id')
-                            ->orWhere('gudang_id', $activeGudang->id))
-                ),
-            ],
-            'satuan_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('satuans', 'id')->where(
-                    fn ($query) => $query->where('is_aktif', true)
-                        ->whereNull('deleted_at')
-                        ->where(fn ($warehouseQuery) => $warehouseQuery
-                            ->whereNull('gudang_id')
-                            ->orWhere('gudang_id', $activeGudang->id))
-                ),
-            ],
-            'minimum_stok' => ['required', 'integer', 'min:0'],
-            'harga_satuan' => ['nullable', 'numeric', 'min:0'],
-            'deskripsi' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $this->stokService->updateUnitBarang($barang, $validated);
 
@@ -187,15 +145,10 @@ class StokController extends Controller
             ->with('success', "{$barang->nama} berhasil dihapus dari daftar stok. Riwayat transaksi tetap disimpan.");
     }
 
-    public function downloadExport(Request $request): StreamedResponse
+    public function downloadExport(FilterUnitStockRequest $request): StreamedResponse
     {
         $activeGudang = $this->resolveUnitGudang($request);
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'q' => ['nullable', 'string', 'max:255'],
-            'kategori_id' => ['nullable', 'integer'],
-            'status' => ['nullable', 'in:aman,warning,kritis,critical'],
-        ]);
+        $filters = $request->validated();
         $searchInputKey = trim($filters['search'] ?? '') === '' ? 'q' : 'search';
         $rows = $this->stokService->getExportRows($activeGudang, [
             ...$filters,
@@ -307,19 +260,7 @@ class StokController extends Controller
 
     protected function resolveUnitGudang(Request $request): Gudang
     {
-        $user = $request->user();
-        abort_unless($user instanceof User, 401);
-
-        $activeGudang = $this->unitGudangService->resolveActiveGudang(
-            $user,
-            $request->query('gudang_id', session('active_gudang_id')),
-            ['unit_bisnis', 'gudang_sukahati', 'gudang_umum'],
-        );
-
-        abort_unless($activeGudang !== null, 403, 'Anda belum ditugaskan ke Gudang Unit aktif.');
-        session(['active_gudang_id' => $activeGudang->getKey()]);
-
-        return $activeGudang;
+        return $this->gudangResolver->resolveUnit($request);
     }
 
     /**

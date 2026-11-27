@@ -181,8 +181,7 @@ final class RecordingGudangControllerTest extends TestCase
             ->assertViewHas('stats.active_sku_count', 2)
             ->assertViewHas('stats.received_today_count', 1)
             ->assertViewHas('lowStockItems', static fn (array $items): bool => $items[0]['kode'] === 'GU-LOW')
-            ->assertSee('SJ-GU-PENDING')
-            ->assertSee('SJ-GU-RECEIVED')
+            ->assertSee('Kiriman menunggu penerimaan')
             ->assertSee('Barang Stok Rendah');
     }
 

@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Traits;
 
 use App\Models\AuditLog;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
@@ -36,10 +37,10 @@ trait Loggable
      */
     protected static function logActivity($model, string $action): void
     {
-        // Determine the causer (authenticated user) if any
+        // Determine the causer (authenticated user) if any — null in CLI/queue context
         $causer = Auth::user();
-        $causerType = $causer ? get_class($causer) : User::class;
-        $causerId = $causer ? $causer->id : 1;
+        $causerType = $causer !== null ? get_class($causer) : null;
+        $causerId = $causer?->id;
 
         // Get IP address and user agent
         $ipAddress = Request::ip();
@@ -48,12 +49,12 @@ trait Loggable
         // Determine description based on action and model
         $description = static::getDescriptionForAction($action, $model);
 
-        // Get changes (only for updated)
+        // Get changes (only for updated), stripping hidden/sensitive fields
         $changes = null;
         if ($action === 'updated' && $model instanceof Model) {
             $changes = [
-                'sebelum' => $model->getOriginal(),
-                'sesudah' => $model->getAttributes(),
+                'sebelum' => static::sanitizeAttributes($model, $model->getOriginal()),
+                'sesudah' => static::sanitizeAttributes($model, $model->getAttributes()),
             ];
         }
 
@@ -67,8 +68,19 @@ trait Loggable
             'description' => $description,
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
-            'changes' => $changes ? json_encode($changes) : null,
+            'changes' => $changes !== null ? json_encode($changes) : null,
         ]);
+    }
+
+    /**
+     * Strip model's hidden fields from an attribute array before storing.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private static function sanitizeAttributes(Model $model, array $attributes): array
+    {
+        return array_diff_key($attributes, array_flip($model->getHidden()));
     }
 
     /**

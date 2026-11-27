@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\HasSemanticSearch;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
@@ -61,40 +62,35 @@ class AuditLog extends Model
 
     /**
      * Cast the changes attribute to an array.
-     * This ensures proper JSON decoding.
+     *
+     * @return array<string, string>
      */
-    protected $casts = [
-        'changes' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'changes' => 'array',
+        ];
+    }
 
     /**
-     * Cast the changes attribute to an array.
-     * This ensures proper JSON decoding even if the cast doesn't work.
+     * Ensure proper JSON decoding even if the stored value is double-encoded or raw string.
      */
-    public function getChangesAttribute($value)
+    protected function changes(): Attribute
     {
-        if ($value === null) {
-            return null;
-        }
-
-        // If it's already an array, return it
-        if (is_array($value)) {
-            return $value;
-        }
-
-        // If it's a string, try to decode it as JSON
-        if (is_string($value)) {
-            $decoded = json_decode($value, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                return $decoded;
+        return Attribute::get(static function (mixed $value): mixed {
+            if ($value === null || is_array($value)) {
+                return $value;
             }
 
-            // If JSON decoding failed, return the original value
-            return $value;
-        }
+            if (is_string($value)) {
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $decoded;
+                }
+            }
 
-        // Return the value as-is for other types
-        return $value;
+            return $value;
+        });
     }
 
     /**

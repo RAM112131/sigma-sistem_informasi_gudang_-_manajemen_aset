@@ -17,6 +17,7 @@ use App\Models\StokAwal;
 use App\Models\TransferBarang;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -39,7 +40,7 @@ final class AdminGUDashboardWorkflowTest extends TestCase
         $this->actingAs($admin)
             ->get(route('unit-bisnis.admin-gu.dashboard'))
             ->assertOk()
-            ->assertSee('Ajukan permintaan')
+            ->assertSee('Ajukan ke Store')
             ->assertSee('Kiriman menunggu penerimaan')
             ->assertSee('Belum ada transaksi yang menunggu verifikasi.')
             ->assertSee('Belum ada data transaksi')
@@ -353,6 +354,9 @@ final class AdminGUDashboardWorkflowTest extends TestCase
             'tanggal_terima' => today(),
             'waktu_terima' => '09:00',
         ]);
+        DB::table('penerimaan_units')
+            ->where('id', $supplierReceipt->getKey())
+            ->update(['tanggal_terima' => today()->toDateString()]);
         PenerimaanUnitDetail::query()->create([
             'penerimaan_unit_id' => $supplierReceipt->getKey(),
             'barang_id' => $barang->getKey(),
@@ -370,6 +374,9 @@ final class AdminGUDashboardWorkflowTest extends TestCase
             'bagian_peminta' => 'Produksi',
             'status_verifikasi' => 'menunggu_verifikasi',
         ]);
+        DB::table('pengeluaran_units')
+            ->where('id', $outgoing->getKey())
+            ->update(['tanggal' => today()->toDateString()]);
         PengeluaranUnitDetail::query()->create([
             'pengeluaran_unit_id' => $outgoing->getKey(),
             'barang_id' => $barang->getKey(),
@@ -469,11 +476,11 @@ final class AdminGUDashboardWorkflowTest extends TestCase
             })
             ->assertSee('Divisi dengan transaksi terbanyak')
             ->assertSee('Produksi')
-            ->assertSee('Grafik Jumlah Transaksi Mingguan')
+            ->assertSee('Transaksi Mingguan')
             ->assertSee('Transaksi Masuk')
             ->assertSee('Transaksi Keluar')
             ->assertSee('Rata-rata transaksi keluar per hari')
-            ->assertSee('0,1 transaksi')
+            ->assertSeeText('0,1 transaksi')
             ->assertSee('Belum ada verifikasi pengeluaran atau pengembalian yang selesai hari ini.')
             ->assertDontSee('RCV-GU-OTHER-001');
 

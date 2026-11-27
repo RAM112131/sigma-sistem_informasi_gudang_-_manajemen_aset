@@ -28,14 +28,20 @@ class PenerimaanBarangStoreDetail extends Model
         'user_id',
     ];
 
-    protected $casts = [
-        'qty_diterima' => 'integer',
-        'qty_rusak' => 'integer',
-        'qty_kurang' => 'integer',
-        'qty_lebih' => 'integer',
-        'harga_satuan' => 'decimal:2',
-        'total_harga' => 'decimal:2',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'qty_diterima' => 'integer',
+            'qty_rusak' => 'integer',
+            'qty_kurang' => 'integer',
+            'qty_lebih' => 'integer',
+            'harga_satuan' => 'decimal:2',
+            'total_harga' => 'decimal:2',
+        ];
+    }
 
     public function penerimaan(): BelongsTo
     {

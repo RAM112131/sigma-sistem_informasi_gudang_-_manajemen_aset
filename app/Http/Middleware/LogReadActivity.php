@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Middleware;
 
 use App\Models\AuditLog;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class LogReadActivity
@@ -32,8 +35,12 @@ class LogReadActivity
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->userAgent(),
                 ]);
-            } catch (\Throwable) {
-                // Silently ignore audit log failures during terminate
+            } catch (\Throwable $e) {
+                Log::warning('Gagal mencatat log aktivitas baca.', [
+                    'path' => $request->path(),
+                    'user_id' => auth()->id(),
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
     }

@@ -32,27 +32,9 @@
         @endif
 
         <!-- Tab Navigation Switcher -->
-        <style>
-            .expense-tabs {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 6px;
-                border-bottom: 2px solid var(--surface-border);
-                margin-bottom: 12px;
-            }
-
-            .expense-tabs .btn {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                min-height: 36px;
-                padding: 4px 12px;
-                font-size: 0.85rem;
-                border-bottom-left-radius: 0;
-                border-bottom-right-radius: 0;
-            }
-        </style>
+        @push('styles')
+    @vite('resources/css/pages/store/pengeluaran/permintaan.css')
+@endpush
         <div class="expense-tabs" role="tablist">
             <a href="{{ route('store.pengeluaran.index', ['tab' => 'permintaan']) }}" class="btn btn-primary" role="tab"
                 aria-selected="true">
@@ -333,29 +315,7 @@
         </div>
     </div>
 
-    <script>
-        let searchTimer = null;
-
-        function debounceSearch(input) {
-            clearTimeout(searchTimer);
-            const val = input.value.trim();
-            if (val.length >= 3 || val.length === 0) {
-                searchTimer = setTimeout(() => {
-                    input.form.submit();
-                }, 450);
-            }
-        }
-
-        if (!window._sigmaPermintaanSearchFocusInstalled) {
-            window._sigmaPermintaanSearchFocusInstalled = true;
-            document.addEventListener('turbo:load', function() {
-                const searchInput = document.getElementById('searchInput');
-                if (searchInput && searchInput.value) {
-                    searchInput.focus();
-                    const len = searchInput.value.length;
-                    searchInput.setSelectionRange(len, len);
-                }
-            });
-        }
-    </script>
+    @push('scripts')
+    @vite('resources/js/pages/store/pengeluaran/permintaan.js')
+@endpush
 @endsection

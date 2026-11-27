@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SuperAdmin\StoreRoleRequest;
 use App\Http\Requests\SuperAdmin\UpdateRoleRequest;
 use App\Services\SuperAdmin\RoleService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -25,9 +24,7 @@ final class RoleController extends Controller
      */
     public function create(): View
     {
-        $viewName = view()->exists('super-admin.roles.create') ? 'super-admin.roles.create' : 'admin.roles.create';
-
-        return view($viewName, $this->roleService->getFormData());
+        return view('super-admin.roles.create', $this->roleService->getFormData());
     }
 
     /**
@@ -37,9 +34,7 @@ final class RoleController extends Controller
     {
         abort_unless($role->guard_name === 'web', 404);
 
-        $viewName = view()->exists('super-admin.roles.create') ? 'super-admin.roles.create' : 'admin.roles.create';
-
-        return view($viewName, [
+        return view('super-admin.roles.create', [
             ...$this->roleService->getFormData($role),
             'role' => $role,
             'isProtectedRole' => in_array($role->name, ['Super Admin', 'super_admin'], true),
@@ -51,27 +46,15 @@ final class RoleController extends Controller
      */
     public function index(): View
     {
-        $viewName = view()->exists('super-admin.roles.index') ? 'super-admin.roles.index' : 'admin.roles.index';
-
-        return view($viewName, $this->roleService->getListingData());
+        return view('super-admin.roles.index', $this->roleService->getListingData());
     }
 
     /**
      * Store a newly created custom role.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(StoreRoleRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name'],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'permissions' => ['nullable', 'array'],
-            'permissions.*' => [
-                'string',
-                Rule::exists('permissions', 'name')->where('guard_name', 'web'),
-            ],
-        ]);
-
-        $role = $this->roleService->create($validated);
+        $role = $this->roleService->create($request->validated());
 
         return redirect()->route('admin.roles.index')->with('success', "Role '{$role->name}' berhasil dibuat!");
     }

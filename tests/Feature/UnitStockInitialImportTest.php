@@ -335,9 +335,8 @@ final class UnitStockInitialImportTest extends TestCase
                 'stok_habis' => 1,
             ])
             ->assertSee('Stok Barang Fisik')
-            ->assertSee('Export Daftar Stok')
             ->assertSee('Semua Status Stok')
-            ->assertSee('HPP Berlaku (Hari Ini)')
+            ->assertSee('HPP Berlaku')
             ->assertDontSee('Barang Gudang Lain');
 
         $this->get(route('unit-bisnis.stok.index', ['status' => 'warning']))

@@ -1,0 +1,788 @@
+.super-dashboard {
+            --dash-text-helper: 12px;
+            --dash-text-body: 14px;
+            --dash-text-section: 20px;
+            --dash-text-metric: 24px;
+            min-width: 0;
+        }
+
+        /* Header Halaman */
+        .super-users-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .super-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: var(--dash-text-helper);
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .super-breadcrumb a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .super-breadcrumb a:hover {
+            color: var(--brand-primary);
+        }
+
+        .super-breadcrumb span:last-child {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .super-page-title {
+            font-size: var(--dash-text-section);
+            font-weight: 800;
+            color: var(--text-primary);
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .super-page-subtitle {
+            font-size: var(--dash-text-helper);
+            color: var(--text-muted);
+            margin: 3px 0 0;
+            line-height: 1.35;
+        }
+
+        .super-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .super-sync-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            height: 38px;
+            background: var(--surface-card);
+            border: 1px solid var(--surface-border);
+            color: var(--text-primary);
+            padding: 0 12px;
+            border-radius: var(--radius);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .super-sync-btn:hover {
+            background: var(--surface-base);
+            border-color: var(--brand-primary);
+        }
+
+        .super-sync-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: var(--brand-primary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .super-cache-pill {
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .super-header-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            height: 38px;
+            background: var(--brand-primary);
+            color: #ffffff;
+            padding: 0 14px;
+            border-radius: var(--radius);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+
+        .super-header-btn:hover {
+            background: var(--brand-primary-d);
+        }
+
+        .super-header-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 2.2;
+            fill: none;
+        }
+
+        /* 4 KPI Cards (Identik dengan Dashboard Super Admin) */
+        .super-dashboard-kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+            margin: 0 0 16px;
+        }
+
+        .super-kpi {
+            position: relative;
+            display: flex;
+            min-width: 0;
+            min-height: 108px;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 4px;
+            overflow: hidden;
+            padding: 12px 14px 10px;
+            border: 1px solid var(--surface-border);
+            border-top: 3px solid var(--kpi-accent, var(--brand-primary));
+            border-radius: var(--radius);
+            background: #fff;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .super-kpi:hover {
+            border-color: var(--brand-primary);
+        }
+
+        .super-kpi-roles {
+            --kpi-accent: var(--brand-accent);
+        }
+
+        .super-kpi-users {
+            --kpi-accent: var(--status-success);
+        }
+
+        .super-kpi-warehouses {
+            --kpi-accent: var(--brand-primary);
+        }
+
+        .super-kpi-activity {
+            --kpi-accent: var(--status-neutral);
+        }
+
+        .super-kpi-heading {
+            padding-right: 24px;
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            letter-spacing: .055em;
+            line-height: 1.2;
+        }
+
+        .super-kpi-value {
+            color: var(--text-primary);
+            font-size: var(--dash-text-metric);
+            font-weight: 850;
+            line-height: 1.15;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .super-kpi-value small {
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 600;
+        }
+
+        .super-kpi-icon {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: grid;
+            width: 24px;
+            height: 24px;
+            place-items: center;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            color: var(--brand-primary);
+        }
+
+        .super-kpi-roles .super-kpi-icon {
+            color: var(--brand-accent);
+        }
+
+        .super-kpi-users .super-kpi-icon {
+            color: var(--status-success);
+        }
+
+        .super-kpi-warehouses .super-kpi-icon {
+            color: var(--brand-primary);
+        }
+
+        .super-kpi-activity .super-kpi-icon {
+            color: var(--status-neutral);
+        }
+
+        .super-kpi-icon svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 1.8;
+        }
+
+        .super-kpi-tag {
+            width: fit-content;
+            max-width: 100%;
+            overflow: hidden;
+            padding: 3px 5px;
+            border-radius: 3px;
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            letter-spacing: .025em;
+            line-height: 1.15;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tag-green {
+            background: rgba(63, 122, 82, .12);
+            color: var(--status-success);
+        }
+
+        .tag-navy {
+            background: rgba(91, 107, 121, .12);
+            color: var(--status-neutral);
+        }
+
+        .tag-teal {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+        }
+
+        /* Info Card Banner */
+        .super-info-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--surface-card);
+            border: 1px solid var(--surface-border);
+            border-left: 3px solid var(--brand-accent);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+        }
+
+        .super-info-card svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--brand-accent);
+            stroke-width: 2;
+            fill: none;
+            flex-shrink: 0;
+        }
+
+        .super-info-card p {
+            margin: 0;
+            font-size: var(--dash-text-helper);
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        /* Super Panel Container */
+        .super-panel {
+            min-width: 0;
+            overflow: hidden;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            margin-bottom: 16px;
+        }
+
+        /* Filter Toolbar */
+        .super-user-filters {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        .super-search {
+            display: flex;
+            min-width: 220px;
+            flex: 1;
+            height: 38px;
+            align-items: center;
+            gap: 7px;
+            padding: 0 10px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-muted);
+        }
+
+        .super-search svg {
+            width: 14px;
+            height: 14px;
+            flex: 0 0 14px;
+            stroke: var(--text-muted);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .super-search input {
+            width: 100%;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            font: inherit;
+            font-size: var(--dash-text-helper);
+            color: var(--text-primary);
+        }
+
+        .super-search input::placeholder {
+            color: var(--text-subtle);
+        }
+
+        .super-filter-select {
+            display: flex;
+            min-width: 140px;
+            height: 38px;
+            align-items: center;
+            padding: 0 10px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: var(--dash-text-helper);
+            cursor: pointer;
+        }
+
+        .super-filter-select:focus,
+        .super-search:focus-within {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 1px;
+        }
+
+        .super-filter-reset {
+            height: 38px;
+            padding: 0 14px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font: inherit;
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .super-filter-reset:hover {
+            background: var(--surface-card);
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+
+        /* Table Styles */
+        .super-users-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .super-users-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .super-users-table th {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--surface-border);
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            letter-spacing: .035em;
+        }
+
+        .super-users-table td {
+            height: 48px;
+            padding: 8px 14px;
+            border-bottom: 1px solid #edf2f0;
+            color: var(--text-primary);
+            font-size: var(--dash-text-body);
+            vertical-align: middle;
+        }
+
+        .super-users-table tbody tr:hover {
+            background: rgba(20, 92, 84, .02);
+        }
+
+        .super-user-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 160px;
+        }
+
+        .super-role-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid var(--surface-border);
+            background: var(--surface-base);
+            color: var(--brand-primary);
+        }
+
+        .super-role-avatar.is-default {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+            border-color: rgba(20, 92, 84, .2);
+        }
+
+        .super-role-avatar.is-custom {
+            background: rgba(201, 122, 43, .1);
+            color: var(--brand-accent);
+            border-color: rgba(201, 122, 43, .2);
+        }
+
+        .super-role-avatar svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .super-role-cell-details {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            min-width: 0;
+        }
+
+        .super-role-guard-code {
+            font-size: 11px;
+            color: var(--text-subtle);
+            font-family: monospace;
+        }
+
+        .super-role-desc-cell {
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: normal;
+            line-height: 1.35;
+        }
+
+        /* Permission Count Link */
+        .super-count-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: var(--radius);
+            background: rgba(20, 92, 84, .08);
+            color: var(--brand-primary);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+
+        .super-count-link:hover {
+            background: var(--brand-primary);
+            color: #fff;
+        }
+
+        .super-count-link svg {
+            width: 12px;
+            height: 12px;
+            stroke: currentColor;
+            stroke-width: 2.2;
+            fill: none;
+        }
+
+        .super-root-tag {
+            font-size: 11px;
+            color: var(--text-subtle);
+        }
+
+        .super-user-count-chip {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            color: var(--text-primary);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+        }
+
+        .super-type-pill {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: var(--radius);
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .pill-default {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+        }
+
+        .pill-custom {
+            background: rgba(201, 122, 43, .12);
+            color: var(--brand-accent-d);
+        }
+
+        /* Action Buttons */
+        .super-users-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .super-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 9px;
+            border-radius: var(--radius);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid var(--surface-border);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            background: #fff;
+        }
+
+        .super-action-btn svg {
+            width: 13px;
+            height: 13px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .btn-edit {
+            color: var(--brand-primary);
+            border-color: rgba(20, 92, 84, .3);
+            background: rgba(20, 92, 84, .04);
+        }
+
+        .btn-edit:hover {
+            background: var(--brand-primary);
+            color: #fff;
+            border-color: var(--brand-primary);
+        }
+
+        .btn-delete {
+            color: var(--status-critical);
+            border-color: rgba(193, 68, 60, .3);
+            background: rgba(193, 68, 60, .04);
+        }
+
+        .btn-delete:hover:not(:disabled) {
+            background: var(--status-critical);
+            color: #fff;
+            border-color: var(--status-critical);
+        }
+
+        .btn-delete.is-disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            background: var(--surface-base);
+            border-color: var(--surface-border);
+            color: var(--text-subtle);
+        }
+
+        .super-table-empty {
+            text-align: center;
+            padding: 32px 16px !important;
+            color: var(--text-muted) !important;
+            font-size: var(--dash-text-body);
+        }
+
+        /* Pagination */
+        .super-users-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 46px;
+            padding: 8px 14px;
+            background: #ffffff;
+            border-top: 1px solid var(--surface-border);
+            font-size: var(--dash-text-helper);
+            color: var(--text-muted);
+        }
+
+        .super-pagination-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .super-page-btn {
+            padding: 4px 10px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-primary);
+            font-size: var(--dash-text-helper);
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .super-page-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            color: var(--text-subtle);
+        }
+
+        .super-page-btn:not(:disabled):hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+
+        .super-page-indicator {
+            font-size: var(--dash-text-helper);
+            color: var(--text-muted);
+        }
+
+        /* Info Banner */
+        .super-panel-info-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: var(--radius);
+            background: var(--surface-base);
+            border: 1px solid var(--surface-border);
+            color: var(--text-muted);
+            font-size: var(--dash-text-helper);
+            line-height: 1.35;
+        }
+
+        .super-panel-info-banner svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            stroke: var(--brand-primary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* Role Badges (Identik dengan Dashboard) */
+        .super-role-badge {
+            display: inline-block;
+            max-width: 160px;
+            overflow: hidden;
+            padding: 4px 7px;
+            border-radius: var(--radius);
+            font-size: var(--dash-text-helper);
+            font-weight: 800;
+            line-height: 1.1;
+            text-transform: uppercase;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        .role-super {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+        }
+
+        .role-store {
+            background: rgba(201, 122, 43, .12);
+            color: var(--brand-accent-d);
+        }
+
+        .role-admin {
+            background: rgba(184, 121, 26, .12);
+            color: var(--status-warning);
+        }
+
+        .role-recording {
+            background: rgba(91, 107, 121, .12);
+            color: var(--status-neutral);
+        }
+
+        .role-custom {
+            background: rgba(91, 107, 121, .12);
+            color: var(--status-neutral);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            clip-path: inset(50%);
+        }
+
+        @media (max-width: 1100px) {
+            .super-dashboard-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 680px) {
+            .super-users-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .super-header-actions {
+                justify-content: flex-start;
+            }
+
+            .super-dashboard-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .super-user-filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .super-search,
+            .super-filter-select,
+            .super-filter-reset {
+                width: 100%;
+            }
+
+            .super-users-pagination {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .super-pagination-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }

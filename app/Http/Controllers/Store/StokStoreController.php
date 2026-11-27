@@ -6,11 +6,11 @@ namespace App\Http\Controllers\Store;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Store\AnalyzeStoreStockImportRequest;
+use App\Http\Requests\Store\FilterStokStoreRequest;
 use App\Http\Requests\Store\ProcessStoreStockImportRequest;
 use App\Models\Barang;
 use App\Models\Gudang;
-use App\Models\User;
-use App\Services\Store\GudangStoreService;
+use App\Services\Shared\ActiveGudangResolver;
 use App\Services\Store\StokService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,16 +22,13 @@ final class StokStoreController extends Controller
 {
     public function __construct(
         private readonly StokService $stokService,
-        private readonly GudangStoreService $gudangStoreService,
+        private readonly ActiveGudangResolver $gudangResolver,
     ) {}
 
-    public function index(Request $request): View
+    public function index(FilterStokStoreRequest $request): View
     {
         $gudangStore = $this->resolveStoreGudang($request, ['store_stok.read', 'store.view', 'store.read']);
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'q' => ['nullable', 'string', 'max:255'],
-        ]);
+        $filters = $request->validated();
         $search = trim($filters['search'] ?? '');
         $searchInputKey = 'search';
         if ($search === '') {
@@ -134,19 +131,6 @@ final class StokStoreController extends Controller
      */
     private function resolveStoreGudang(Request $request, string|array $permission): Gudang
     {
-        $user = $request->user();
-        abort_unless($user instanceof User, 403);
-        $context = $this->gudangStoreService->resolveStockWarehouse(
-            $user,
-            $request->query('gudang_id', session('active_gudang_id')),
-            (array) $permission,
-        );
-        $gudang = $context['warehouse'];
-
-        if ($context['remember']) {
-            session(['active_gudang_id' => $gudang->id]);
-        }
-
-        return $gudang;
+        return $this->gudangResolver->resolveStoreStock($request, $permission);
     }
 }

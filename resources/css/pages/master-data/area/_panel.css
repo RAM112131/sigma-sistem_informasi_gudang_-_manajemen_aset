@@ -1,0 +1,215 @@
+.area-master-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.8fr) minmax(280px, .9fr);
+            align-items: start;
+            gap: 12px;
+        }
+
+        .area-master-card {
+            min-width: 0;
+            padding: 16px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+        }
+
+        .area-master-card h2 {
+            margin: 0 0 6px;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .area-master-card p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: .82rem;
+            line-height: 1.5;
+        }
+
+        .area-master-side {
+            display: grid;
+            gap: 12px;
+        }
+
+        .area-master-period-group {
+            display: grid;
+            gap: 8px;
+        }
+
+        .area-master-period-picker {
+            display: grid;
+            max-width: 180px;
+            gap: 4px;
+        }
+
+        .area-master-card--warning {
+            border-top: 3px solid var(--status-warning, #c97a2b);
+        }
+
+        .area-master-search {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .area-master-search .form-control {
+            min-width: 0;
+        }
+
+        .area-master-table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+        }
+
+        .area-master-table {
+            width: 100%;
+            min-width: 680px;
+            border-collapse: collapse;
+            font-size: .8rem;
+        }
+
+        .area-master-table th,
+        .area-master-table td {
+            padding: 10px 11px;
+            border-bottom: 1px solid var(--surface-border);
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        .area-master-table th {
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: .69rem;
+            font-weight: 750;
+            letter-spacing: .035em;
+            text-transform: uppercase;
+        }
+
+        .area-master-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .area-master-table td:nth-child(2),
+        .area-master-table td:nth-child(3) {
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .area-master-name {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .area-master-inactive {
+            display: inline-flex;
+            margin-left: 6px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: .68rem;
+        }
+
+        .area-master-action-buttons {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .area-master-action-buttons .btn {
+            padding: 4px 10px;
+            min-height: 32px;
+            font-size: .78rem;
+        }
+
+        .area-master-orphan-form button {
+            min-height: 38px;
+        }
+
+        .area-master-quick-form {
+            display: grid;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .area-master-quick-form .btn {
+            width: 100%;
+            min-height: 44px;
+        }
+
+        .area-master-orphans {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .area-master-orphan-form {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--surface-border);
+        }
+
+        .area-master-orphan-form span {
+            min-width: 0;
+            color: var(--text-primary);
+            font-size: .8rem;
+            overflow-wrap: anywhere;
+        }
+
+        .area-master-empty {
+            padding: 24px 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .area-master-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 12px;
+            color: var(--text-muted);
+            font-size: .78rem;
+        }
+
+        .area-master-warehouse-picker {
+            display: grid;
+            max-width: 480px;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .area-master-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .area-master-side {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 620px) {
+            .area-master-side {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .area-master-card {
+                padding: 12px;
+            }
+
+            .area-master-footer {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .area-master-edit-form {
+                min-width: 0;
+                flex-wrap: wrap;
+            }
+        }

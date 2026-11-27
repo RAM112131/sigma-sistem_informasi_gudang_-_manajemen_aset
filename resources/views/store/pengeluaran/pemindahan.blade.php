@@ -72,25 +72,9 @@
         @endif
 
         <!-- Navigation Tab Switcher -->
-        <style>
-            .expense-tabs {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                border-bottom: 2px solid var(--surface-border);
-                margin-bottom: 20px;
-            }
-
-            .expense-tabs .btn {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 7px;
-                min-height: 40px;
-                border-bottom-left-radius: 0;
-                border-bottom-right-radius: 0;
-            }
-        </style>
+        @push('styles')
+    @vite('resources/css/pages/store/pengeluaran/pemindahan.css')
+@endpush
         <div class="expense-tabs" role="tablist">
             <a href="{{ route('store.pengeluaran.index', ['tab' => 'pemindahan']) }}" class="btn" role="tab"
                 :class="mode === 'permintaan' ? 'btn-primary' : 'btn-outline'" :aria-selected="mode === 'permintaan'"
@@ -372,49 +356,7 @@
                     <input type="hidden" name="mode" value="langsung">
 
                     <!-- Document Metadata Header (Rasio Lebar Custom di Desktop) -->
-                    <style>
-                        .meta-row-desktop {
-                            display: flex;
-                            flex-wrap: wrap;
-                            gap: 12px;
-                            align-items: flex-start;
-                            margin-bottom: 20px;
-                        }
-
-                        .meta-col-wide-1 {
-                            flex: 1.35 1 0;
-                            min-width: 0;
-                        }
-
-                        .meta-col-wide-2 {
-                            flex: 1.5 1 0;
-                            min-width: 0;
-                        }
-
-                        .meta-col-short {
-                            flex: 0.9 1 0;
-                            min-width: 0;
-                        }
-
-                        @media (max-width: 991px) {
-
-                            .meta-col-wide-1,
-                            .meta-col-wide-2,
-                            .meta-col-short {
-                                flex: 1 1 calc(50% - 12px);
-                                min-width: 180px;
-                            }
-                        }
-
-                        @media (max-width: 576px) {
-
-                            .meta-col-wide-1,
-                            .meta-col-wide-2,
-                            .meta-col-short {
-                                flex: 1 1 100%;
-                            }
-                        }
-                    </style>
+                    
 
                     <div class="meta-row-desktop">
                         <!-- No. Dokumen Keluar (Lebar) -->

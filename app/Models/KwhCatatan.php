@@ -29,19 +29,25 @@ class KwhCatatan extends Model
         'pencatat_id',
     ];
 
-    protected $casts = [
-        'tanggal' => 'date',
-        'lwbp_meter' => 'decimal:2',
-        'wbp_meter' => 'decimal:2',
-        'selisih_lwbp' => 'decimal:2',
-        'selisih_wbp' => 'decimal:2',
-        'ct_factor' => 'decimal:2',
-        'tarif_lwbp' => 'decimal:2',
-        'tarif_wbp' => 'decimal:2',
-        'nominal_lwbp' => 'decimal:2',
-        'nominal_wbp' => 'decimal:2',
-        'total_biaya' => 'decimal:2',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'tanggal' => 'date',
+            'lwbp_meter' => 'decimal:2',
+            'wbp_meter' => 'decimal:2',
+            'selisih_lwbp' => 'decimal:2',
+            'selisih_wbp' => 'decimal:2',
+            'ct_factor' => 'decimal:2',
+            'tarif_lwbp' => 'decimal:2',
+            'tarif_wbp' => 'decimal:2',
+            'nominal_lwbp' => 'decimal:2',
+            'nominal_wbp' => 'decimal:2',
+            'total_biaya' => 'decimal:2',
+        ];
+    }
 
     public function gudang(): BelongsTo
     {

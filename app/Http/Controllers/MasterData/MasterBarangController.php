@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MasterData\AnalyzeMasterBarangImportRequest;
 use App\Http\Requests\MasterData\ConfirmMasterBarangImportRequest;
 use App\Http\Requests\MasterData\ImportMasterBarangExcelRequest;
+use App\Http\Requests\MasterData\IndexMasterBarangRequest;
 use App\Http\Requests\MasterData\RegisterMasterBarangGudangRequest;
 use App\Http\Requests\MasterData\StoreMasterBarangRequest;
 use App\Http\Requests\MasterData\UpdateMasterBarangRequest;
@@ -30,28 +31,9 @@ final class MasterBarangController extends Controller
 {
     public function __construct(private readonly MasterBarangService $masterBarangService) {}
 
-    public function index(Request $request): View
+    public function index(IndexMasterBarangRequest $request): View
     {
-        if ($request->filled('gudang_id') && ! is_array($request->input('gudang_id'))) {
-            $request->merge(['gudang_id' => [$request->input('gudang_id')]]);
-        }
-
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'kategori_id' => ['nullable', 'integer'],
-            'satuan_id' => ['nullable', 'integer'],
-            'gudang_id' => ['nullable', 'array'],
-            'gudang_id.*' => ['integer', 'distinct', 'exists:gudangs,id'],
-            'status' => ['nullable', 'in:0,1'],
-            'registrasi' => ['nullable', 'in:semua,terdaftar,belum'],
-            'per_page' => ['nullable', 'in:8,15,20,25,50'],
-            'area_gudang_id' => ['nullable', 'integer', 'exists:gudangs,id'],
-            'area_periode' => ['nullable', 'date_format:Y-m'],
-            'kategori_drawer' => ['nullable', 'integer', 'exists:kategori_barangs,id'],
-            'drawer_search' => ['nullable', 'string', 'max:255'],
-            'tab' => ['nullable', 'in:barang,kategori,satuan,area'],
-            'barang_view' => ['nullable', 'in:catalog,add,import'],
-        ]);
+        $filters = $request->validated();
         $user = $request->user();
 
         return view('master-data.index', $this->masterBarangService->getPageData(

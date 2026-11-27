@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\UnitBisnis\AdminGudangUmum;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UnitBisnis\AdminGudangUmum\FilterPemindahanRequest;
 use App\Http\Requests\UnitBisnis\AdminGudangUmum\KonfirmasiPemindahanRequest;
 use App\Models\TransferBarang;
 use App\Models\User;
 use App\Services\UnitBisnis\AdminGudangUmumService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 final class PemindahanController extends Controller
@@ -19,14 +19,12 @@ final class PemindahanController extends Controller
         private readonly AdminGudangUmumService $adminService,
     ) {}
 
-    public function index(Request $request): View
+    public function index(FilterPemindahanRequest $request): View
     {
         $user = $request->user();
         abort_unless($user instanceof User, 401);
 
-        $filters = $request->validate([
-            'status' => ['nullable', 'in:dikirim,diterima'],
-        ]);
+        $filters = $request->validated();
         $pageData = $this->adminService->getTransferPageData(
             $user,
             $request->query('gudang_id', session('active_gudang_id')),

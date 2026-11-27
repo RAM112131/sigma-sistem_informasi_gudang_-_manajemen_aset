@@ -32,10 +32,16 @@ class TransferBarang extends Model
         'diterima_at',
     ];
 
-    protected $casts = [
-        'dikirim_at' => 'datetime',
-        'diterima_at' => 'datetime',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'dikirim_at' => 'datetime',
+            'diterima_at' => 'datetime',
+        ];
+    }
 
     public function permintaanBarang(): BelongsTo
     {

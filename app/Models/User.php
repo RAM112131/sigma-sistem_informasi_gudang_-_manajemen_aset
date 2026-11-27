@@ -70,18 +70,14 @@ class User extends Authenticatable
             return $text;
         }
 
-        $roles = $this->relationLoaded('roles')
-            ? $this->roles->pluck('name')->filter()->values()
-            : $this->roles()->pluck('name');
+        $this->loadMissing(['roles:id,name', 'gudang:id,nama']);
 
+        $roles = $this->roles->pluck('name')->filter()->values();
         if ($roles->isNotEmpty()) {
             $text .= ' Role: '.$roles->join(', ').'.';
         }
 
-        $gudangs = $this->relationLoaded('gudang')
-            ? $this->gudang->pluck('nama')->filter()->values()
-            : $this->gudang()->pluck('nama');
-
+        $gudangs = $this->gudang->pluck('nama')->filter()->values();
         if ($gudangs->isNotEmpty()) {
             $text .= ' Penugasan gudang: '.$gudangs->join(', ').'.';
         }

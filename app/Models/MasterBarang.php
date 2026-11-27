@@ -27,10 +27,16 @@ final class MasterBarang extends Model
         'is_aktif',
     ];
 
-    protected $casts = [
-        'harga_satuan' => 'decimal:2',
-        'is_aktif' => 'boolean',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'harga_satuan' => 'decimal:2',
+            'is_aktif' => 'boolean',
+        ];
+    }
 
     public function kategori(): BelongsTo
     {

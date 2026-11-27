@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Requests\SuperAdmin;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 final class StoreRoleRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()?->hasRole('Super Admin') ?? false;
+        return auth()->user()?->hasAnyRole(['Super Admin', 'super_admin']) ?? false;
     }
 
     /**
@@ -28,7 +29,10 @@ final class StoreRoleRequest extends FormRequest
             ],
             'description' => ['nullable', 'string', 'max:255'],
             'permissions' => ['nullable', 'array'],
-            'permissions.*' => ['string', 'exists:permissions,name'],
+            'permissions.*' => [
+                'string',
+                Rule::exists('permissions', 'name')->where('guard_name', 'web'),
+            ],
         ];
     }
 

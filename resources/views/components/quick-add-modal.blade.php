@@ -1,442 +1,22 @@
 {{-- Reusable Quick-Add Inline Modal Component for Barang, Kategori, & Satuan --}}
-@php($canCreateKategori = auth()->user()?->can('kategori.create') ?? false)
-<div x-data="{
-    openQuickAdd: false,
-    openAddKategori: false,
-    openAddSatuan: false,
-
-    // Form fields
-    namaBarang: '',
-    kodeBarang: '',
-    kategoriId: '',
-    kategoriSearch: '',
-    kategoriDropdown: false,
-    satuanId: '',
-    satuanSearch: '',
-    satuanDropdown: false,
-    minimumStok: 10,
-    deskripsiBarang: '',
-
-    // Inline Kategori & Satuan fields
-    newKategoriNama: '',
-    newSatuanKode: '',
-    newSatuanNama: '',
-    unitAliases: @js(\App\Services\MasterData\SatuanService::aliases()),
-
-    updateQuickAddSatuanName() {
-        const value = String(this.newSatuanKode ?? '').trim();
-        if (!value) {
-            this.newSatuanNama = '';
-            return;
-        }
-
-        const normalized = value.toLocaleLowerCase('id-ID');
-        const alias = this.unitAliases[normalized];
-        this.newSatuanNama = alias?.nama ??
-            value.toLocaleLowerCase('id-ID').replace(/(^|\s)\S/g, character => character.toLocaleUpperCase('id-ID'));
-    },
-
-    // Real-time Semantic Similarity Duplicate Check
-    similarItems: [],
-    hasSimilar: false,
-    ignoreWarning: false,
-    isSearchingSimilar: false,
-    similarityCheckTimer: null,
-    similarityCheckController: null,
-    submitting: false,
-    categoryCreating: false,
-    satuanCreating: false,
-    errorMessage: '',
-
-    // Options
-    kategoris: {{ json_encode($kategoriList ?? \App\Models\KategoriBarang::orderBy('nama')->get(['id', 'nama'])) }},
-    satuans: {{ json_encode($satuanList ??\App\Models\Satuan::where('is_aktif', true)->orderBy('nama')->get(['id', 'kode', 'nama'])) }},
-    quickAddUrls: {
-        checkSimilarity: '/quick-add/check-similarity',
-        barang: '/quick-add/barang',
-        kategori: '/quick-add/kategori',
-        satuan: '/quick-add/satuan'
-    },
-
-    init() {
-        this.$watch('namaBarang', (val) => this.checkSimilarity(val));
-        this.$watch('newSatuanKode', () => this.updateQuickAddSatuanName());
-    },
-
-    csrfToken() {
-        return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '{{ csrf_token() }}';
-    },
-
-    async parseJsonResponse(res) {
-        const text = await res.text();
-        let data = {};
-        try {
-            data = text ? JSON.parse(text) : {};
-        } catch (e) {
-            data = { message: `Server mengembalikan respons tidak valid (HTTP ${res.status}).` };
-        }
-        return { ok: res.ok, status: res.status, data };
-    },
-
-    extractErrorMessage(data, fallback) {
-        if (data?.errors) {
-            return Object.values(data.errors).flat().join(' ');
-        }
-        return data?.message || fallback;
-    },
-
-    cancelSimilarityCheck() {
-        clearTimeout(this.similarityCheckTimer);
-        this.similarityCheckTimer = null;
-        this.similarityCheckController?.abort();
-        this.similarityCheckController = null;
-        this.isSearchingSimilar = false;
-    },
-
-    checkSimilarity(name) {
-        this.cancelSimilarityCheck();
-        const normalizedName = String(name || '').trim();
-        if (normalizedName.length < 3) {
-            this.similarItems = [];
-            this.hasSimilar = false;
-            return;
-        }
-
-        this.similarityCheckTimer = setTimeout(async () => {
-            const controller = new AbortController();
-            this.similarityCheckController = controller;
-            this.isSearchingSimilar = true;
-
-            try {
-                const res = await fetch(this.quickAddUrls.checkSimilarity + '?nama=' + encodeURIComponent(
-                    normalizedName), {
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    signal: controller.signal
-                });
-                const { ok, data } = await this.parseJsonResponse(res);
-                if (ok && this.similarityCheckController === controller) {
-                    this.hasSimilar = Boolean(data.has_similar);
-                    this.similarItems = data.similar_items || [];
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') console.error(error);
-            } finally {
-                if (this.similarityCheckController === controller) {
-                    this.isSearchingSimilar = false;
-                    this.similarityCheckController = null;
-                }
-            }
-        }, 350);
-    },
-
-    selectExisting(item) {
-        this.$dispatch('item-selected', item);
-        this.openQuickAdd = false;
-        this.resetForm();
-    },
-
-    filteredKategoris() {
-        const query = this.kategoriSearch.trim().toLowerCase();
-        if (!query) return this.kategoris.slice(0, 8);
-        return this.kategoris.filter(kat => kat.nama.toLowerCase().includes(query)).slice(0, 8);
-    },
-
-    selectKategori(kategori) {
-        this.kategoriId = kategori.id;
-        this.kategoriSearch = kategori.nama;
-    },
-
-    findMatchingKategori(query) {
-        const normalized = String(query || '').trim().toLowerCase();
-        if (!normalized) return null;
-        return this.kategoris.find(kat => kat.nama.trim().toLowerCase() === normalized) || null;
-    },
-
-    openNewKategori() {
-        this.newKategoriNama = this.kategoriSearch.trim();
-        this.errorMessage = '';
-        this.openAddKategori = true;
-    },
-
-    async addKategoriFromSearch() {
-        const nama = this.kategoriSearch.trim();
-        if (!nama || this.categoryCreating) return null;
-
-        const existing = this.findMatchingKategori(nama);
-        if (existing) {
-            this.selectKategori(existing);
-            this.kategoriDropdown = false;
-            return existing;
-        }
-
-        this.categoryCreating = true;
-        this.errorMessage = '';
-
-        try {
-            const res = await fetch(this.quickAddUrls.kategori, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': this.csrfToken()
-                },
-                body: JSON.stringify({ nama })
-            });
-            const { ok, data } = await this.parseJsonResponse(res);
-            if (!ok || !data.success) {
-                this.errorMessage = this.extractErrorMessage(data, 'Kategori gagal ditambahkan.');
-                return null;
-            }
-
-            if (!this.kategoris.some(k => k.id === data.kategori.id)) {
-                this.kategoris.push(data.kategori);
-            }
-            this.selectKategori(data.kategori);
-            this.kategoriDropdown = false;
-            return data.kategori;
-        } catch (err) {
-            this.errorMessage = 'Gagal terhubung ke server saat menambahkan kategori.';
-            console.error(err);
-            return null;
-        } finally {
-            this.categoryCreating = false;
-        }
-    },
-
-    filteredSatuans() {
-        const query = this.satuanSearch.trim().toLowerCase();
-        if (!query) return this.satuans.slice(0, 8);
-        return this.satuans.filter(satuan =>
-            satuan.nama.toLowerCase().includes(query) || satuan.kode.toLowerCase().includes(query)
-        ).slice(0, 8);
-    },
-
-    selectSatuan(satuan) {
-        this.satuanId = satuan.id;
-        this.satuanSearch = satuan.nama + ' (' + satuan.kode + ')';
-    },
-
-    findMatchingSatuan(query) {
-        const normalized = String(query || '').trim().toLowerCase();
-        if (!normalized) return null;
-        return this.satuans.find(sat =>
-            sat.nama.trim().toLowerCase() === normalized ||
-            sat.kode.trim().toLowerCase() === normalized ||
-            (sat.nama + ' (' + sat.kode + ')').trim().toLowerCase() === normalized
-        ) || null;
-    },
-
-    openNewSatuan() {
-        this.newSatuanKode = this.satuanSearch.trim();
-        this.updateQuickAddSatuanName();
-        this.errorMessage = '';
-        this.openAddSatuan = true;
-    },
-
-    async addSatuanFromSearch() {
-        const nama = this.satuanSearch.trim();
-        if (!nama || this.satuanCreating) return null;
-
-        const existing = this.findMatchingSatuan(nama);
-        if (existing) {
-            this.selectSatuan(existing);
-            this.satuanDropdown = false;
-            return existing;
-        }
-
-        this.satuanCreating = true;
-        this.errorMessage = '';
-        const kode = nama.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 20);
-
-        try {
-            const res = await fetch(this.quickAddUrls.satuan, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': this.csrfToken()
-                },
-                body: JSON.stringify({ kode, nama })
-            });
-            const { ok, data } = await this.parseJsonResponse(res);
-            if (!ok || !data.success) {
-                this.errorMessage = this.extractErrorMessage(data, 'Satuan gagal ditambahkan.');
-                return null;
-            }
-
-            if (!this.satuans.some(s => s.id === data.satuan.id)) {
-                this.satuans.push(data.satuan);
-            }
-            this.selectSatuan(data.satuan);
-            this.satuanDropdown = false;
-            return data.satuan;
-        } catch (err) {
-            this.errorMessage = 'Gagal terhubung ke server saat menambahkan satuan.';
-            console.error(err);
-            return null;
-        } finally {
-            this.satuanCreating = false;
-        }
-    },
-
-    async submitBarang() {
-        if (!this.namaBarang.trim()) {
-            this.errorMessage = 'Mohon lengkapi Nama Barang, Kategori, dan Satuan.';
-            return;
-        }
-
-        this.cancelSimilarityCheck();
-        this.submitting = true;
-        this.errorMessage = '';
-
-        try {
-            const categoryPromise = !this.kategoriId && this.kategoriSearch.trim() ?
-                this.addKategoriFromSearch() : Promise.resolve(null);
-            const unitPromise = !this.satuanId && this.satuanSearch.trim() ?
-                this.addSatuanFromSearch() : Promise.resolve(null);
-            const [createdKat, createdSat] = await Promise.all([categoryPromise, unitPromise]);
-
-            if ((!this.kategoriId && this.kategoriSearch.trim() && !createdKat) ||
-                (!this.satuanId && this.satuanSearch.trim() && !createdSat)) {
-                this.submitting = false;
-                return;
-            }
-
-            if (!this.kategoriId || !this.satuanId) {
-                this.errorMessage = 'Mohon lengkapi Nama Barang, Kategori, dan Satuan.';
-                this.submitting = false;
-                return;
-            }
-
-            const res = await fetch(this.quickAddUrls.barang, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': this.csrfToken()
-                },
-                body: JSON.stringify({
-                    nama: this.namaBarang.trim(),
-                    kode: this.kodeBarang,
-                    kategori_id: this.kategoriId,
-                    satuan_id: this.satuanId,
-                    minimum_stok: this.minimumStok,
-                    deskripsi: this.deskripsiBarang
-                })
-            });
-
-            const { ok, data } = await this.parseJsonResponse(res);
-            if (ok && data.success) {
-                this.$dispatch('item-selected', data.barang);
-                this.openQuickAdd = false;
-                this.resetForm();
-            } else {
-                this.errorMessage = this.extractErrorMessage(data, 'Gagal menambahkan barang.');
-            }
-        } catch (err) {
-            this.errorMessage = 'Gagal terhubung ke server. Silakan coba lagi.';
-            console.error(err);
-        } finally {
-            this.submitting = false;
-        }
-    },
-
-    async submitKategori() {
-        if (!this.newKategoriNama.trim() || this.categoryCreating) return;
-        this.categoryCreating = true;
-        this.errorMessage = '';
-        try {
-            const res = await fetch(this.quickAddUrls.kategori, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': this.csrfToken()
-                },
-                body: JSON.stringify({ nama: this.newKategoriNama.trim() })
-            });
-            const { ok, data } = await this.parseJsonResponse(res);
-            if (ok && data.success) {
-                if (!this.kategoris.some(k => k.id === data.kategori.id)) {
-                    this.kategoris.push(data.kategori);
-                }
-                this.kategoriId = data.kategori.id;
-                this.kategoriSearch = data.kategori.nama;
-                this.openAddKategori = false;
-                this.newKategoriNama = '';
-            } else {
-                this.errorMessage = this.extractErrorMessage(data, 'Gagal menyimpan kategori.');
-            }
-        } catch (err) {
-            this.errorMessage = 'Gagal terhubung ke server saat menyimpan kategori.';
-            console.error(err);
-        } finally {
-            this.categoryCreating = false;
-        }
-    },
-
-    async submitSatuan() {
-        if (!this.newSatuanKode.trim() || !this.newSatuanNama.trim() || this.satuanCreating) return;
-        this.satuanCreating = true;
-        this.errorMessage = '';
-        try {
-            const res = await fetch(this.quickAddUrls.satuan, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': this.csrfToken()
-                },
-                body: JSON.stringify({ kode: this.newSatuanKode.trim(), nama: this.newSatuanNama.trim() })
-            });
-            const { ok, data } = await this.parseJsonResponse(res);
-            if (ok && data.success) {
-                if (!this.satuans.some(s => s.id === data.satuan.id)) {
-                    this.satuans.push(data.satuan);
-                }
-                this.satuanId = data.satuan.id;
-                this.satuanSearch = data.satuan.nama + ' (' + data.satuan.kode + ')';
-                this.openAddSatuan = false;
-                this.newSatuanKode = '';
-                this.newSatuanNama = '';
-            } else {
-                this.errorMessage = this.extractErrorMessage(data, 'Gagal menyimpan satuan.');
-            }
-        } catch (err) {
-            this.errorMessage = 'Gagal terhubung ke server saat menyimpan satuan.';
-            console.error(err);
-        } finally {
-            this.satuanCreating = false;
-        }
-    },
-
-    resetForm() {
-        this.cancelSimilarityCheck();
-        this.namaBarang = '';
-        this.kodeBarang = '';
-        this.kategoriId = '';
-        this.kategoriSearch = '';
-        this.kategoriDropdown = false;
-        this.satuanId = '';
-        this.satuanSearch = '';
-        this.satuanDropdown = false;
-        this.minimumStok = 10;
-        this.deskripsiBarang = '';
-        this.similarItems = [];
-        this.hasSimilar = false;
-        this.ignoreWarning = false;
-        this.errorMessage = '';
-    }
-}"
-    @open-quick-add.window="resetForm(); const detail = $event.detail || {}; kodeBarang = detail.kode || ''; namaBarang = detail.nama || ''; openQuickAdd = true;">
+@php
+    $canCreateKategori = auth()->user()?->can('kategori.create') ?? false;
+    $canCreateSatuan = auth()->user()?->can('satuan.create') ?? false;
+    $quickAddConfig = [
+        'unitAliases' => \App\Services\MasterData\SatuanService::aliases(),
+        'kategoris' => $kategoriList ?? \App\Models\KategoriBarang::where('is_aktif', true)->orderBy('nama')->get(['id', 'nama']),
+        'satuans' => $satuanList ?? \App\Models\Satuan::where('is_aktif', true)->orderBy('nama')->get(['id', 'kode', 'nama']),
+        'csrfToken' => csrf_token(),
+        'urls' => [
+            'checkSimilarity' => '/quick-add/check-similarity',
+            'barang' => '/quick-add/barang',
+            'kategori' => '/quick-add/kategori',
+            'satuan' => '/quick-add/satuan',
+        ],
+    ];
+@endphp
+<div x-data='quickAddModal(@json($quickAddConfig))'
+    @open-quick-add.window="handleOpen($event.detail)">
 
     {{-- Modal Utama Quick-Add Barang --}}
     <div class="modal-backdrop" x-show="openQuickAdd" x-cloak x-transition.opacity>
@@ -444,33 +24,29 @@
             <div class="modal-header">
                 <div>
                     <h3 class="modal-title">+ Quick-Add Barang Master Baru</h3>
-                    <p style="font-size: .8rem; color: var(--text-muted); margin: 2px 0 0;">Tambah katalog produk baru
-                        langsung dari dalam transaksi tanpa pindah halaman.</p>
+                    <p class="quick-add-subtitle">Tambah katalog produk baru langsung dari dalam transaksi tanpa pindah halaman.</p>
                 </div>
                 <button type="button" class="modal-close" @click="openQuickAdd = false">&times;</button>
             </div>
 
             <div class="modal-body">
                 <template x-if="errorMessage">
-                    <div class="alert-toast alert-toast-danger" style="margin-bottom: 16px;">
+                    <div class="alert-toast alert-toast-danger quick-add-alert">
                         <span x-text="errorMessage"></span>
                     </div>
                 </template>
 
                 <div class="form-group">
-                    <label class="form-label">Nama Barang Master <span
-                            style="color: var(--status-critical);">*</span></label>
+                    <label class="form-label">Nama Barang Master <span class="quick-add-required">*</span></label>
                     <input type="text" class="form-control" x-model="namaBarang"
                         placeholder="Misal: Plastik Vacuum 20x30cm 100s" required>
                 </div>
 
                 {{-- Warning Box: Real-Time Semantic Similarity Check --}}
                 <template x-if="hasSimilar">
-                    <div
-                        style="background: rgba(184, 121, 26, 0.1); border: 1.5px solid var(--brand-accent); border-radius: var(--radius); padding: 14px; margin-bottom: 18px;">
-                        <div
-                            style="display: flex; align-items: center; gap: 8px; color: var(--brand-accent); font-weight: 700; font-size: .88rem; margin-bottom: 8px;">
-                            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none"
+                    <div class="quick-add-similar-box">
+                        <div class="quick-add-similar-title">
+                            <svg class="quick-add-similar-icon" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2">
                                 <path
                                     d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -479,19 +55,18 @@
                             </svg>
                             <span>⚠️ Peringatan Duplikasi: Ditemukan Barang dengan Nama Mirip</span>
                         </div>
-                        <p style="font-size: .82rem; color: var(--text-primary); margin: 0 0 10px;">
+                        <p class="quick-add-similar-desc">
                             Sistem menemukan produk master existing yang mirip di katalog. Apakah Anda ingin memakai
                             produk yang sudah ada?
                         </p>
-                        <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px;">
+                        <div class="quick-add-similar-list">
                             <template x-for="item in similarItems" :key="item.id">
-                                <div
-                                    style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--surface-border);">
+                                <div class="quick-add-similar-row">
                                     <div>
-                                        <strong style="color: var(--brand-primary);" x-text="item.kode"></strong>
+                                        <strong class="quick-add-similar-code" x-text="item.kode"></strong>
                                         &mdash;
-                                        <span style="font-weight: 700;" x-text="item.nama"></span>
-                                        <span style="font-size: .75rem; color: var(--text-muted);"
+                                        <span class="quick-add-similar-name" x-text="item.nama"></span>
+                                        <span class="quick-add-similar-meta"
                                             x-text="'(' + item.kategori + ' / ' + item.satuan + ')'"></span>
                                     </div>
                                     <button type="button" class="btn btn-sm btn-accent" @click="selectExisting(item)">
@@ -500,20 +75,18 @@
                                 </div>
                             </template>
                         </div>
-                        <label
-                            style="display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; font-weight: 600; cursor: pointer; color: var(--text-muted);">
-                            <input type="checkbox" x-model="ignoreWarning"
-                                style="width: 16px; height: 16px; accent-color: var(--brand-accent);">
+                        <label class="quick-add-ignore-label">
+                            <input type="checkbox" x-model="ignoreWarning" class="quick-add-ignore-checkbox">
                             <span>Tetap buat barang baru ini (Produk Berbeda)</span>
                         </label>
                     </div>
                 </template>
 
-                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+                <div class="quick-add-grid-2">
                     <div class="form-group">
                         <label class="form-label">Kode Barang (opsional)</label>
-                        <input type="text" class="form-control" x-model="kodeBarang" placeholder="STR-PVC-01"
-                            style="text-transform: uppercase;">
+                        <input type="text" class="form-control quick-add-uppercase" x-model="kodeBarang"
+                            placeholder="STR-PVC-01">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Stok Min Default</label>
@@ -521,29 +94,25 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="quick-add-grid-2">
                     <div class="form-group">
-                        <div
-                            style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                            <label class="form-label" style="margin-bottom:0;">Kategori <span
-                                    style="color: var(--status-critical);">*</span></label>
+                        <div class="quick-add-field-header">
+                            <label class="form-label">Kategori <span class="quick-add-required">*</span></label>
                             @if ($canCreateKategori)
-                                <button type="button" @click="openAddKategori = true"
-                                    style="background: none; border: none; font-size: .78rem; color: var(--brand-primary); font-weight: 700; cursor: pointer;">
+                                <button type="button" @click="openAddKategori = true" class="quick-add-inline-trigger">
                                     + Tambah Kategori
                                 </button>
                             @endif
                         </div>
-                        <div style="position: relative;">
+                        <div class="quick-add-combobox">
                             <input type="text" class="form-control" x-model="kategoriSearch"
                                 @input="kategoriId = ''; kategoriDropdown = true" @focus="kategoriDropdown = true"
                                 @click.outside="kategoriDropdown = false" placeholder="Ketik atau pilih kategori..."
                                 autocomplete="off" required>
-                            <div x-show="kategoriDropdown" x-cloak
-                                style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1050; background: var(--surface-card); border: 1px solid var(--surface-border); border-radius: 6px; box-shadow: 0 8px 18px rgba(0,0,0,.12); max-height: 180px; overflow-y: auto; margin-top: 4px;">
+                            <div x-show="kategoriDropdown" x-cloak class="quick-add-dropdown">
                                 <template x-for="kat in filteredKategoris()" :key="kat.id">
                                     <button type="button" @click="selectKategori(kat); kategoriDropdown = false"
-                                        style="display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--surface-border); background: transparent; padding: 9px 12px; cursor: pointer;">
+                                        class="quick-add-dropdown-item">
                                         <span x-text="kat.nama"></span>
                                     </button>
                                 </template>
@@ -551,8 +120,7 @@
                                     <button type="button"
                                         x-show="kategoriSearch.trim() && !findMatchingKategori(kategoriSearch)"
                                         @click="openNewKategori(); kategoriDropdown = false"
-                                        :disabled="categoryCreating"
-                                        style="display: block; width: 100%; text-align: left; border: 0; background: rgba(20,92,84,.06); color: var(--brand-primary); padding: 10px 12px; cursor: pointer; font-weight: 700;">
+                                        :disabled="categoryCreating" class="quick-add-dropdown-create">
                                         <span x-show="!categoryCreating">+ Tambah Kategori “<span
                                                 x-text="kategoriSearch"></span>”</span>
                                         <span x-show="categoryCreating">Menyimpan kategori...</span>
@@ -563,33 +131,29 @@
                     </div>
 
                     <div class="form-group">
-                        <div
-                            style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                            <label class="form-label" style="margin-bottom:0;">Satuan Dasar <span
-                                    style="color: var(--status-critical);">*</span></label>
-                            <button type="button" @click="openAddSatuan = true"
-                                style="background: none; border: none; font-size: .78rem; color: var(--brand-primary); font-weight: 700; cursor: pointer;">
+                        <div class="quick-add-field-header">
+                            <label class="form-label">Satuan Dasar <span class="quick-add-required">*</span></label>
+                            <button type="button" @click="openAddSatuan = true" class="quick-add-inline-trigger">
                                 + Tambah Satuan
                             </button>
                         </div>
-                        <div style="position: relative;">
+                        <div class="quick-add-combobox">
                             <input type="text" class="form-control" x-model="satuanSearch"
                                 @input="satuanId = ''; satuanDropdown = true" @focus="satuanDropdown = true"
                                 @click.outside="satuanDropdown = false" placeholder="Ketik atau pilih satuan..."
                                 autocomplete="off" required>
-                            <div x-show="satuanDropdown" x-cloak
-                                style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1050; background: var(--surface-card); border: 1px solid var(--surface-border); border-radius: 6px; box-shadow: 0 8px 18px rgba(0,0,0,.12); max-height: 180px; overflow-y: auto; margin-top: 4px;">
+                            <div x-show="satuanDropdown" x-cloak class="quick-add-dropdown">
                                 <template x-for="sat in filteredSatuans()" :key="sat.id">
                                     <button type="button" @click="selectSatuan(sat); satuanDropdown = false"
-                                        style="display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--surface-border); background: transparent; padding: 9px 12px; cursor: pointer;">
-                                        <span x-text="sat.nama + ' (' + sat.kode + ')' "></span>
+                                        class="quick-add-dropdown-item">
+                                        <span x-text="sat.nama + ' (' + sat.kode + ')'"></span>
                                     </button>
                                 </template>
-                                @if (auth()->user()?->can('satuan.create') ?? false)
+                                @if ($canCreateSatuan)
                                     <button type="button"
                                         x-show="satuanSearch.trim() && !findMatchingSatuan(satuanSearch)"
                                         @click="openNewSatuan(); satuanDropdown = false" :disabled="satuanCreating"
-                                        style="display: block; width: 100%; text-align: left; border: 0; background: rgba(20,92,84,.06); color: var(--brand-primary); padding: 10px 12px; cursor: pointer; font-weight: 700;">
+                                        class="quick-add-dropdown-create">
                                         <span x-show="!satuanCreating">+ Tambah Satuan “<span
                                                 x-text="satuanSearch"></span>”</span>
                                         <span x-show="satuanCreating">Menyimpan satuan...</span>
@@ -619,15 +183,15 @@
 
     {{-- Sub-Modal Inline: Tambah Kategori --}}
     @if ($canCreateKategori)
-        <div class="modal-backdrop" x-show="openAddKategori" x-cloak style="z-index: 1100;">
-            <div class="modal-card" style="max-width: 420px;">
+        <div class="modal-backdrop quick-add-submodal-backdrop" x-show="openAddKategori" x-cloak>
+            <div class="modal-card quick-add-submodal-card">
                 <div class="modal-header">
                     <h3 class="modal-title">+ Quick-Add Kategori</h3>
                     <button type="button" class="modal-close" @click="openAddKategori = false">&times;</button>
                 </div>
                 <div class="modal-body">
                     <template x-if="errorMessage">
-                        <div class="alert-toast alert-toast-danger" style="margin-bottom: 12px;">
+                        <div class="alert-toast alert-toast-danger quick-add-alert-sm">
                             <span x-text="errorMessage"></span>
                         </div>
                     </template>
@@ -650,15 +214,15 @@
     @endif
 
     {{-- Sub-Modal Inline: Tambah Satuan --}}
-    <div class="modal-backdrop" x-show="openAddSatuan" x-cloak style="z-index: 1100;">
-        <div class="modal-card" style="max-width: 420px;">
+    <div class="modal-backdrop quick-add-submodal-backdrop" x-show="openAddSatuan" x-cloak>
+        <div class="modal-card quick-add-submodal-card">
             <div class="modal-header">
                 <h3 class="modal-title">+ Quick-Add Satuan</h3>
                 <button type="button" class="modal-close" @click="openAddSatuan = false">&times;</button>
             </div>
             <div class="modal-body">
                 <template x-if="errorMessage">
-                    <div class="alert-toast alert-toast-danger" style="margin-bottom: 12px;">
+                    <div class="alert-toast alert-toast-danger quick-add-alert-sm">
                         <span x-text="errorMessage"></span>
                     </div>
                 </template>

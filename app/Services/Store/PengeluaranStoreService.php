@@ -439,13 +439,14 @@ final readonly class PengeluaranStoreService
         PermintaanBarang $permintaan,
         array $qtyDialokasikan,
         ?string $customNomorKeluar,
-        Gudang $gudangStore
+        Gudang $gudangStore,
+        ?int $userId = null,
     ): string {
         $nomorKeluar = ! empty($customNomorKeluar)
             ? strtoupper(trim($customNomorKeluar))
             : $this->generateNomorKeluar();
 
-        DB::transaction(function () use ($qtyDialokasikan, $permintaan, $gudangStore, $nomorKeluar): void {
+        DB::transaction(function () use ($qtyDialokasikan, $permintaan, $gudangStore, $nomorKeluar, $userId): void {
             $lockedRequest = PermintaanBarang::query()
                 ->whereKey($permintaan->id)
                 ->lockForUpdate()
@@ -537,7 +538,7 @@ final readonly class PengeluaranStoreService
                     'qty_dikirim' => $qty,
                     'qty_diterima' => 0,
                     'status' => 'dikirim',
-                    'dikirim_oleh' => Auth::id(),
+                    'dikirim_oleh' => $userId ?? Auth::id(),
                     'dikirim_at' => now(),
                     'supir_pengantar' => null,
                 ]);
@@ -568,7 +569,7 @@ final readonly class PengeluaranStoreService
      *
      * @throws ValidationException
      */
-    public function createDirectTransfer(array $validated, Gudang $gudangStore): string
+    public function createDirectTransfer(array $validated, Gudang $gudangStore, ?int $userId = null): string
     {
         $nomorKeluar = ! empty($validated['nomor_keluar'])
             ? strtoupper(trim($validated['nomor_keluar']))
@@ -636,7 +637,7 @@ final readonly class PengeluaranStoreService
                     'qty_dikirim' => $qty,
                     'qty_diterima' => 0,
                     'status' => 'dikirim',
-                    'dikirim_oleh' => Auth::id(),
+                    'dikirim_oleh' => $userId ?? Auth::id(),
                     'dikirim_at' => now(),
                     'supir_pengantar' => null,
                 ]);

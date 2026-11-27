@@ -7,8 +7,7 @@ namespace App\Http\Controllers\Store;
 use App\Exports\StoreReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\Gudang;
-use App\Models\User;
-use App\Services\Store\GudangStoreService;
+use App\Services\Shared\ActiveGudangResolver;
 use App\Services\Store\LaporanStoreService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Query\Builder;
@@ -21,7 +20,7 @@ final class LaporanStoreController extends Controller
 {
     public function __construct(
         private readonly LaporanStoreService $laporanService,
-        private readonly GudangStoreService $gudangStoreService,
+        private readonly ActiveGudangResolver $gudangResolver,
     ) {}
 
     /**
@@ -99,17 +98,6 @@ final class LaporanStoreController extends Controller
 
     private function resolveStoreGudang(Request $request): Gudang
     {
-        $user = $request->user();
-        abort_unless($user instanceof User, 403);
-        $gudang = $this->gudangStoreService->resolveAssignedWarehouse(
-            $user,
-            $request->query('gudang_id'),
-            ['holding', 'global_master', 'gudang_store'],
-            [],
-            session('active_gudang_id'),
-        );
-        session(['active_gudang_id' => $gudang->id]);
-
-        return $gudang;
+        return $this->gudangResolver->resolveStore($request, []);
     }
 }

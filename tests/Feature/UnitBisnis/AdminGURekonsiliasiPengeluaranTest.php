@@ -52,20 +52,21 @@ final class AdminGURekonsiliasiPengeluaranTest extends TestCase
     {
         [$admin, $gudang] = $this->makeAdminContext('GU-REKON-REQUESTERS');
         $barang = $this->makeBarang($gudang, 'REKON-REQUESTER-001');
-        [$firstIssue] = $this->makeIssue($gudang, $barang, 'OUT-REQUESTER-001', [
+        [$firstIssue] = $this->makeIssue($gudang, $barang, 'OUT-REQUESTER-001', issueAttributes: [
             'bagian_peminta' => 'Alpha Peminta',
         ]);
-        $this->makeIssue($gudang, $barang, 'OUT-REQUESTER-002', [
+        $this->makeIssue($gudang, $barang, 'OUT-REQUESTER-002', issueAttributes: [
             'bagian_peminta' => 'Beta Peminta',
         ]);
 
         $otherWarehouse = $this->makeGudang('GU-REKON-REQUESTERS-OTHER');
         $otherBarang = $this->makeBarang($otherWarehouse, 'REKON-REQUESTER-OTHER-001');
-        $this->makeIssue($otherWarehouse, $otherBarang, 'OUT-REQUESTER-OTHER', [
+        $this->makeIssue($otherWarehouse, $otherBarang, 'OUT-REQUESTER-OTHER', issueAttributes: [
             'bagian_peminta' => 'Peminta Gudang Lain',
         ]);
 
         $response = $this->actingAs($admin)
+            ->withSession(['active_gudang_id' => $gudang->getKey()])
             ->get(route('unit-bisnis.admin-gu.rekonsiliasi-pengeluaran.index', [
                 'bagian_peminta' => 'Alpha Peminta',
             ]));
@@ -359,6 +360,7 @@ final class AdminGURekonsiliasiPengeluaranTest extends TestCase
 
     /**
      * @param  array<string, int|float|string>  $detailAttributes
+     * @param  array<string, int|float|string>  $issueAttributes
      * @return array{0: PengeluaranUnit, 1: PengeluaranUnitDetail}
      */
     private function makeIssue(
@@ -366,15 +368,16 @@ final class AdminGURekonsiliasiPengeluaranTest extends TestCase
         Barang $barang,
         string $nomorBpb,
         array $detailAttributes = [],
+        array $issueAttributes = [],
     ): array {
-        $issue = PengeluaranUnit::query()->create([
+        $issue = PengeluaranUnit::query()->create(array_merge([
             'nomor_bpb' => $nomorBpb,
             'gudang_id' => $gudang->getKey(),
             'tanggal' => today(),
             'waktu_keluar' => '10:00',
             'bagian_peminta' => 'Produksi',
             'status_verifikasi' => 'menunggu_verifikasi',
-        ]);
+        ], $issueAttributes));
         $detail = $issue->details()->create(array_merge([
             'barang_id' => $barang->getKey(),
             'kode_barang' => $barang->kode,

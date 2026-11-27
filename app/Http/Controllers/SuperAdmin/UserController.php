@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SuperAdmin\IndexUserRequest;
 use App\Http\Requests\SuperAdmin\StoreUserRequest;
 use App\Http\Requests\SuperAdmin\UpdateUserRequest;
 use App\Models\User;
 use App\Services\SuperAdmin\UserService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 final class UserController extends Controller
@@ -22,15 +22,9 @@ final class UserController extends Controller
     /**
      * Display a listing of system user accounts.
      */
-    public function index(Request $request): View
+    public function index(IndexUserRequest $request): View
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'role' => ['nullable', 'string', 'exists:roles,name'],
-            'gudang' => ['nullable', 'integer', 'exists:gudangs,id'],
-            'status' => ['nullable', 'in:active,inactive'],
-            'per_page' => ['nullable', 'integer', 'in:10,25,50'],
-        ]);
+        $filters = $request->validated();
 
         $data = $this->userService->getListingData($filters);
 

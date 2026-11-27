@@ -6,6 +6,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MasterData\SaveDivisiPemintaRequest;
+use App\Http\Requests\MasterData\ToggleDivisiPemintaRequest;
 use App\Models\DivisiPeminta;
 use App\Models\User;
 use App\Services\MasterData\DivisiPemintaService;
@@ -55,13 +56,11 @@ final class DivisiPemintaController extends Controller
         ])->with('success', 'Nama area/peminta berhasil diperbarui.');
     }
 
-    public function toggle(Request $request, DivisiPeminta $area): RedirectResponse
+    public function toggle(ToggleDivisiPemintaRequest $request, DivisiPeminta $area): RedirectResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User, 401);
-        $filters = $request->validate([
-            'area_periode' => ['nullable', 'date_format:Y-m'],
-        ]);
+        $filters = $request->validated();
 
         $area = $this->divisiPemintaService->toggle(
             $user,

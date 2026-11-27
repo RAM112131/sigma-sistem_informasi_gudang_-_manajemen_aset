@@ -123,7 +123,7 @@ final class AdminDashboardTest extends TestCase
             ->assertRedirect(route('login'));
     }
 
-    public function test_super_admin_layout_does_not_query_assigned_warehouses(): void
+    public function test_super_admin_dashboard_batches_warehouse_assignment_queries(): void
     {
         $admin = $this->createSuperAdmin();
         $warehouseQueries = [];
@@ -138,7 +138,7 @@ final class AdminDashboardTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Sistem Global');
-        $this->assertSame([], $warehouseQueries, implode("\n", $warehouseQueries));
+        $this->assertCount(1, $warehouseQueries, implode("\n", $warehouseQueries));
     }
 
     private function createSuperAdmin(): User

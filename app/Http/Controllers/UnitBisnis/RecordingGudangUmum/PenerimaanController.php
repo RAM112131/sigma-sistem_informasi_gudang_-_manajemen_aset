@@ -14,7 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-class PenerimaanController extends Controller
+final class PenerimaanController extends Controller
 {
     public function __construct(
         private readonly RecordingGudangUmumService $recordingService,

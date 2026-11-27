@@ -24,11 +24,13 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
         ]);
-        $middleware->trustProxies(at: '*');
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', env('APP_ENV') === 'production' ? null : '*')
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (\Illuminate\Http\Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })->create();
 

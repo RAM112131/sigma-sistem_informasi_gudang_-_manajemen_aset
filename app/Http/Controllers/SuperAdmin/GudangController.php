@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SuperAdmin\IndexGudangRequest;
 use App\Http\Requests\SuperAdmin\StoreGudangRequest;
 use App\Http\Requests\SuperAdmin\UpdateGudangRequest;
 use App\Models\Gudang;
 use App\Services\SuperAdmin\GudangService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 final class GudangController extends Controller
@@ -23,28 +22,15 @@ final class GudangController extends Controller
     /**
      * Display a listing of master warehouse locations.
      */
-    public function index(Request $request): View
+    public function index(IndexGudangRequest $request): View
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'jenis' => ['nullable', 'string', Rule::in([
-                'holding',
-                'global_master',
-                'gudang_store',
-                'unit_bisnis',
-                'gudang_sukahati',
-                'gudang_umum',
-            ])],
-            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
-        ]);
+        $filters = $request->validated();
         $filters['jenis'] = $filters['jenis'] ?? '';
         $filters['status'] = $filters['status'] ?? '';
         $filters['search'] = trim($filters['search'] ?? '');
         $gudangs = $this->gudangService->paginate($filters);
 
-        $viewName = view()->exists('super-admin.gudang.index') ? 'super-admin.gudang.index' : 'admin.gudang.index';
-
-        return view($viewName, [
+        return view('super-admin.gudang.index', [
             'gudangs' => $gudangs,
             'filters' => $filters,
         ]);
@@ -55,9 +41,7 @@ final class GudangController extends Controller
      */
     public function create(): View
     {
-        $viewName = view()->exists('super-admin.gudang.form') ? 'super-admin.gudang.form' : 'admin.gudang.form';
-
-        return view($viewName, [
+        return view('super-admin.gudang.form', [
             'gudang' => null,
         ]);
     }
@@ -77,9 +61,7 @@ final class GudangController extends Controller
      */
     public function edit(Gudang $gudang): View
     {
-        $viewName = view()->exists('super-admin.gudang.form') ? 'super-admin.gudang.form' : 'admin.gudang.form';
-
-        return view($viewName, [
+        return view('super-admin.gudang.form', [
             'gudang' => $gudang,
         ]);
     }

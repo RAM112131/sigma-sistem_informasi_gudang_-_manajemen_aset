@@ -25,9 +25,15 @@ class Satuan extends Model
         'is_aktif',
     ];
 
-    protected $casts = [
-        'is_aktif' => 'boolean',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_aktif' => 'boolean',
+        ];
+    }
 
     public function gudang(): BelongsTo
     {

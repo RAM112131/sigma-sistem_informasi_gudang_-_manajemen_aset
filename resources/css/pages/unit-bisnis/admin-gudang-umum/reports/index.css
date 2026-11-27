@@ -1,0 +1,381 @@
+[x-cloak] {
+            display: none !important;
+        }
+
+        .report-table th,
+        .report-table td {
+            white-space: nowrap;
+        }
+
+        .report-dashboard {
+            --report-helper: 12px;
+            min-width: 0;
+        }
+
+        .report-surface {
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: none;
+        }
+
+        .report-page-header {
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+        }
+
+        .report-page-header h1 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 22px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .report-page-header p {
+            color: var(--text-muted);
+        }
+
+        .report-page-header .report-location {
+            font-size: var(--report-helper);
+            font-weight: 600;
+        }
+
+        .report-page-header .report-description {
+            max-width: 680px;
+            font-size: var(--report-helper);
+            line-height: 1.4;
+        }
+
+        .report-context-badge,
+        .report-status-badge {
+            padding: 4px 7px;
+            border-radius: var(--radius);
+            font-size: var(--report-helper);
+            font-weight: 800;
+        }
+
+        .report-context-badge {
+            background: rgba(20, 92, 84, .1);
+            color: var(--brand-primary);
+        }
+
+        .report-status-badge {
+            background: rgba(184, 121, 26, .12);
+            color: var(--status-warning);
+        }
+
+        .report-actions {
+            align-items: center;
+        }
+
+        .report-action {
+            min-height: 38px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            font-size: var(--report-helper);
+            font-weight: 800;
+        }
+
+        .report-action-secondary {
+            background: var(--surface-card);
+            color: var(--brand-primary);
+        }
+
+        .report-action-secondary:hover {
+            border-color: var(--brand-primary);
+            background: var(--surface-base);
+        }
+
+        .report-action-primary {
+            border-color: var(--brand-primary);
+            background: var(--brand-primary);
+            color: #fff;
+        }
+
+        .report-action-primary:hover {
+            border-color: var(--brand-primary-d);
+            background: var(--brand-primary-d);
+        }
+
+        .report-filter-panel {
+            padding: 12px 14px;
+        }
+
+        .report-filter-form {
+            gap: 8px;
+        }
+
+        .report-field-label {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+            font-size: var(--report-helper);
+            font-weight: 700;
+        }
+
+        .report-control {
+            min-height: 38px;
+            border-color: var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--text-primary);
+            font-size: var(--report-helper);
+        }
+
+        .report-control::placeholder {
+            color: var(--text-subtle);
+        }
+
+        .report-control:focus-visible,
+        .report-filter-submit:focus-visible,
+        .report-tab:focus-visible,
+        .report-matrix-mode button:focus-visible,
+        .report-matrix-pagination a:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+        }
+
+        .report-filter-submit {
+            min-height: 38px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-card);
+            color: var(--brand-primary);
+            font-size: var(--report-helper);
+            font-weight: 800;
+        }
+
+        .report-filter-submit:hover {
+            border-color: var(--brand-primary);
+            background: var(--surface-base);
+        }
+
+        .report-tabs {
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: none;
+        }
+
+        .report-tabs-list {
+            gap: 3px;
+            padding: 6px;
+        }
+
+        .report-tab {
+            min-height: 38px;
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            font-size: var(--report-helper);
+            font-weight: 800;
+        }
+
+        .report-tab:hover {
+            background: var(--surface-base);
+            color: var(--brand-primary);
+        }
+
+        .report-tab[aria-selected="true"] {
+            background: var(--brand-primary);
+            color: #fff;
+        }
+
+        .report-matrix-panel {
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: none;
+        }
+
+        .report-matrix-heading {
+            min-height: 68px;
+            align-items: center;
+            padding: 14px 16px;
+            border-color: var(--surface-border);
+            background: var(--surface-card);
+        }
+
+        .report-matrix-heading h2 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 20px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .report-matrix-heading p {
+            margin: 3px 0 0;
+            color: var(--text-muted);
+            font-size: var(--report-helper);
+            line-height: 1.4;
+        }
+
+        .report-matrix-mode {
+            min-height: 38px;
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            background: var(--surface-base);
+        }
+
+        .report-matrix-mode button {
+            min-height: 32px;
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            font-size: var(--report-helper);
+            font-weight: 800;
+        }
+
+        .report-matrix-mode button[aria-pressed="true"] {
+            background: var(--surface-card);
+            color: var(--brand-primary);
+            box-shadow: 0 1px 3px rgba(31, 37, 35, .12);
+        }
+
+        .report-matrix-scroll {
+            width: 100%;
+            overflow: auto;
+            scrollbar-color: #b6c4bf var(--surface-base);
+            scrollbar-width: thin;
+        }
+
+        .report-matrix-table {
+            min-width: max-content;
+            border-collapse: separate;
+            border-spacing: 0;
+            color: var(--text-primary);
+            font-size: var(--report-helper);
+        }
+
+        .report-matrix-table thead th {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--surface-border);
+            background: var(--surface-base);
+            color: var(--text-muted);
+            font-size: var(--report-helper);
+            font-weight: 800;
+            letter-spacing: .035em;
+            vertical-align: middle;
+        }
+
+        .report-matrix-table tbody td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf2f0;
+            background: var(--surface-card);
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        .report-matrix-table tbody tr:hover td {
+            background: #f7faf8;
+        }
+
+        .report-matrix-table tfoot td {
+            padding: 10px 12px;
+            border-top: 2px solid var(--surface-border);
+            background: var(--surface-base);
+            color: var(--text-primary);
+            font-weight: 800;
+            vertical-align: middle;
+        }
+
+        .report-matrix-table th:first-child,
+        .report-matrix-table tfoot td:first-child {
+            background: var(--surface-base);
+        }
+
+        .report-matrix-table tbody td:first-child {
+            background: var(--surface-card);
+        }
+
+        .report-matrix-table tbody tr:hover td:first-child {
+            background: #f7faf8;
+        }
+
+        .report-matrix-empty {
+            padding: 32px 16px !important;
+            color: var(--text-muted) !important;
+            text-align: center;
+        }
+
+        .report-matrix-pagination {
+            border-top: 1px solid var(--surface-border);
+            padding: 8px 12px;
+        }
+
+        .report-matrix-pagination nav {
+            font-size: var(--report-helper);
+        }
+
+        @media (max-width: 820px) {
+            .report-page-header {
+                flex-wrap: wrap;
+            }
+
+            .report-filter-form {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .report-filter-submit {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .report-page-header {
+                padding: 12px;
+            }
+
+            .report-page-header h1 {
+                font-size: 20px;
+            }
+
+            .report-actions,
+            .report-actions a {
+                flex: 1 1 100%;
+            }
+
+            .report-actions a {
+                min-height: 44px;
+            }
+
+            .report-filter-panel {
+                padding: 10px;
+            }
+
+            .report-filter-form {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .report-filter-submit {
+                grid-column: auto;
+                min-height: 44px;
+            }
+
+            .report-control {
+                min-height: 44px;
+                font-size: 14px;
+            }
+
+            .report-tab {
+                min-height: 44px;
+            }
+
+            .report-matrix-heading {
+                align-items: flex-start;
+                padding: 12px;
+            }
+
+            .report-matrix-heading h2 {
+                font-size: 18px;
+            }
+
+            .report-matrix-mode {
+                min-height: 44px;
+            }
+
+            .report-matrix-mode button {
+                min-height: 36px;
+            }
+        }

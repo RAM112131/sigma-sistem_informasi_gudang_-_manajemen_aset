@@ -30,11 +30,17 @@ class Barang extends Model
         'is_aktif',
     ];
 
-    protected $casts = [
-        'minimum_stok' => 'integer',
-        'harga_satuan' => 'decimal:2',
-        'is_aktif' => 'boolean',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'minimum_stok' => 'integer',
+            'harga_satuan' => 'decimal:2',
+            'is_aktif' => 'boolean',
+        ];
+    }
 
     public function gudang(): BelongsTo
     {

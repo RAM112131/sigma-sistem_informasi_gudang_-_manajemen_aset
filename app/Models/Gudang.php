@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Traits\Loggable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -21,9 +22,15 @@ class Gudang extends Model
         'is_aktif',
     ];
 
-    protected $casts = [
-        'is_aktif' => 'boolean',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_aktif' => 'boolean',
+        ];
+    }
 
     public function users(): BelongsToMany
     {
@@ -45,12 +52,12 @@ class Gudang extends Model
         return $this->hasMany(Satuan::class, 'gudang_id');
     }
 
-    public function getJenisLabelAttribute(): string
+    protected function jenisLabel(): Attribute
     {
-        return match ($this->jenis) {
+        return Attribute::get(fn (): string => match ($this->jenis) {
             'holding', 'global_master', 'gudang_store' => 'Gudang Holding (Master Global)',
             'unit_bisnis', 'gudang_sukahati', 'gudang_umum' => 'Gudang Unit Bisnis',
-            default => 'Unit Bisnis ('.title_case($this->jenis).')'
-        };
+            default => 'Unit Bisnis ('.title_case($this->jenis).')',
+        });
     }
 }

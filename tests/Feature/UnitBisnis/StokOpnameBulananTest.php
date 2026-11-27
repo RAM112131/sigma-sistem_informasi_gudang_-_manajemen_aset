@@ -231,11 +231,13 @@ final class StokOpnameBulananTest extends TestCase
             ->assertRedirect()
             ->assertSessionHas('success', 'Draf opname berhasil disimpan. Saldo stok belum berubah.');
 
-        $this->assertDatabaseHas('stok_opnames', [
-            'gudang_id' => $gudang->getKey(),
-            'periode' => '2026-10-01',
-            'status' => 'draft',
-        ]);
+        self::assertTrue(
+            StokOpname::query()
+                ->where('gudang_id', $gudang->getKey())
+                ->whereDate('periode', '2026-10-01')
+                ->where('status', 'draft')
+                ->exists(),
+        );
         self::assertSame(10.0, app(StokService::class)->saldo($barang, (int) $gudang->getKey())['saldo']);
 
         $this->post(route('unit-bisnis.admin-gu.stok-opname.apply'), $payload)

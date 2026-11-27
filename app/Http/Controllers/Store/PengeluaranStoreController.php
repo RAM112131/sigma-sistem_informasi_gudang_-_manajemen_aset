@@ -9,37 +9,38 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Store;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Store\BuatPemindahanLangsungRequest;
+use App\Http\Requests\Store\FilterPengeluaranStoreRequest;
+use App\Http\Requests\Store\KonfirmasiKirimStoreRequest;
+use App\Http\Requests\Store\ProsesPermintaanStoreRequest;
+use App\Http\Requests\Store\SearchBarangStoreRequest;
+use App\Http\Requests\Store\TolakPermintaanStoreRequest;
 use App\Models\Gudang;
 use App\Models\PermintaanBarang;
 use App\Models\TransferBarang;
 use App\Models\User;
-use App\Services\Store\GudangStoreService;
+use App\Services\Shared\ActiveGudangResolver;
 use App\Services\Store\PengeluaranStoreService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 final class PengeluaranStoreController extends Controller
 {
     public function __construct(
         private readonly PengeluaranStoreService $pengeluaranService,
-        private readonly GudangStoreService $gudangStoreService,
+        private readonly ActiveGudangResolver $gudangResolver,
     ) {}
 
-    public function permintaanIndex(Request $request): View
+    public function permintaanIndex(FilterPengeluaranStoreRequest $request): View
     {
         $gudangStore = $this->resolveStoreGudang([
             'store_pengeluaran.read',
             'store_pengeluaran.create',
             'store.distribusi',
         ]);
-        $filters = $request->validate([
-            'status' => ['nullable', Rule::in(['baru', 'diproses', 'selesai', 'ditolak'])],
-            'search' => ['nullable', 'string', 'max:255'],
-        ]);
+        $filters = $request->validated();
 
         $status = $filters['status'] ?? '';
         $search = trim($filters['search'] ?? '');
@@ -67,22 +68,14 @@ final class PengeluaranStoreController extends Controller
         ));
     }
 
-    public function index(Request $request): View
+    public function index(FilterPengeluaranStoreRequest $request): View
     {
         $gudangStore = $this->resolveStoreGudang([
             'store_pengeluaran.read',
             'store_pengeluaran.create',
             'store.distribusi',
         ]);
-        $filters = $request->validate([
-            'tab' => ['nullable', 'in:pemindahan,permintaan,langsung,histori'],
-            'permintaan_id' => ['nullable', 'integer'],
-            'status' => ['nullable', Rule::in(['diminta', 'dikirim', 'diterima', 'baru', 'diproses', 'selesai', 'ditolak'])],
-            'search' => ['nullable', 'string', 'max:255'],
-            'q' => ['nullable', 'string', 'max:255'],
-            'tgl_awal' => ['nullable', 'date'],
-            'tgl_akhir' => ['nullable', 'date'],
-        ]);
+        $filters = $request->validated();
 
         $tab = $filters['tab'] ?? 'pemindahan';
         if (! in_array($tab, ['pemindahan', 'permintaan', 'langsung', 'histori'], true)) {
@@ -162,23 +155,20 @@ final class PengeluaranStoreController extends Controller
         ]);
     }
 
-    public function prosesPermintaan(Request $request, PermintaanBarang $permintaan): RedirectResponse
+    public function prosesPermintaan(ProsesPermintaanStoreRequest $request, PermintaanBarang $permintaan): RedirectResponse
     {
         $gudangStore = $this->resolveStoreGudang([
             'store_pengeluaran.create',
             'store.distribusi',
         ]);
-        $validated = $request->validate([
-            'nomor_keluar' => ['nullable', 'string', 'max:60'],
-            'qty_dialokasikan' => ['required', 'array', 'min:1', 'max:100'],
-            'qty_dialokasikan.*' => ['required', 'integer', 'min:0', 'max:2147483647'],
-        ]);
+        $validated = $request->validated();
 
         $nomorKeluar = $this->pengeluaranService->allocateRequest(
             $permintaan,
             $validated['qty_dialokasikan'],
             $validated['nomor_keluar'] ?? null,
-            $gudangStore
+            $gudangStore,
+            (int) Auth::id(),
         );
 
         return redirect()->route('store.pengeluaran.index', ['tab' => 'histori'])
@@ -186,63 +176,42 @@ final class PengeluaranStoreController extends Controller
             ->with('print_sj', $nomorKeluar);
     }
 
-    public function cariBarangPemindahan(Request $request): JsonResponse
+    public function cariBarangPemindahan(SearchBarangStoreRequest $request): JsonResponse
     {
         $gudangStore = $this->resolveStoreGudang([
             'store_pengeluaran.read',
             'store_pengeluaran.create',
             'store.distribusi',
         ]);
-        $validated = $request->validate([
-            'q' => ['required', 'string', 'min:1', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $results = $this->pengeluaranService->searchBarang(trim($validated['q']), (int) $gudangStore->id);
 
         return response()->json(['data' => $results]);
     }
 
-    public function buatPemindahanLangsung(Request $request): RedirectResponse
+    public function buatPemindahanLangsung(BuatPemindahanLangsungRequest $request): RedirectResponse
     {
         $gudangStore = $this->resolveStoreGudang([
             'store_pengeluaran.create',
             'store.distribusi',
         ]);
-        $validated = $request->validate([
-            'nomor_keluar' => ['nullable', 'string', 'max:60'],
-            'gudang_tujuan_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('gudangs', 'id')->where(fn ($query) => $query
-                    ->where('is_aktif', true)
-                    ->whereIn('jenis', ['unit_bisnis', 'gudang_umum', 'gudang_sukahati'])),
-            ],
-            'unit_peminta_teks' => ['nullable', 'string', 'max:255'],
-            'pemohon' => ['nullable', 'string', 'max:255'],
-            'petugas' => ['nullable', 'string', 'max:255'],
-            'items' => ['nullable', 'array', 'min:1', 'max:100'],
-            'items.*.barang_id' => ['required_with:items', 'integer'],
-            'items.*.qty' => ['required_with:items', 'integer', 'min:1', 'max:2147483647'],
-            'barang_id' => ['required_without:items', 'nullable', 'integer'],
-            'qty_diminta' => ['required_without:items', 'nullable', 'integer', 'min:1', 'max:2147483647'],
-        ]);
+        $validated = $request->validated();
 
-        $nomorKeluar = $this->pengeluaranService->createDirectTransfer($validated, $gudangStore);
+        $nomorKeluar = $this->pengeluaranService->createDirectTransfer($validated, $gudangStore, (int) Auth::id());
 
         return redirect()->route('store.pengeluaran.index', ['tab' => 'histori'])
             ->with('success', "Pengiriman barang dokumen {$nomorKeluar} berhasil diproses dan dikirim.")
             ->with('print_sj', $nomorKeluar);
     }
 
-    public function tolakPermintaan(Request $request, PermintaanBarang $permintaan): RedirectResponse
+    public function tolakPermintaan(TolakPermintaanStoreRequest $request, PermintaanBarang $permintaan): RedirectResponse
     {
         $gudangStore = $this->resolveStoreGudang([
             'store_pengeluaran.update',
             'store.distribusi',
         ]);
-        $validated = $request->validate([
-            'alasan_penolakan' => ['required', 'string', 'max:2000'],
-        ]);
+        $validated = $request->validated();
 
         $this->pengeluaranService->rejectRequest($permintaan, $validated['alasan_penolakan'], $gudangStore);
 
@@ -250,17 +219,13 @@ final class PengeluaranStoreController extends Controller
             ->with('success', "Permintaan {$permintaan->nomor_pr} ditolak.");
     }
 
-    public function konfirmasiKirim(Request $request, TransferBarang $transfer): RedirectResponse
+    public function konfirmasiKirim(KonfirmasiKirimStoreRequest $request, TransferBarang $transfer): RedirectResponse
     {
         $gudangStore = $this->resolveStoreGudang([
             'store_pengeluaran.update',
             'store.distribusi',
         ]);
-        $validated = $request->validate([
-            'qty_dikirim' => ['required', 'integer', 'min:1'],
-            'supir_pengantar' => ['nullable', 'string', 'max:255'],
-            'foto_bukti' => ['nullable', 'image', 'max:5120'],
-        ]);
+        $validated = $request->validated();
 
         $fotoPath = null;
         if ($request->hasFile('foto_bukti')) {
@@ -286,18 +251,11 @@ final class PengeluaranStoreController extends Controller
      */
     private function resolveStoreGudang(array $permissions): Gudang
     {
-        $user = Auth::user();
-        abort_unless($user instanceof User, 403);
-        $gudangStore = $this->gudangStoreService->resolveAssignedWarehouse(
-            $user,
-            null,
-            ['gudang_store'],
+        return $this->gudangResolver->resolveStore(
+            request(),
             $permissions,
-            session('active_gudang_id'),
+            ['gudang_store'],
+            false,
         );
-
-        session(['active_gudang_id' => $gudangStore->id]);
-
-        return $gudangStore;
     }
 }

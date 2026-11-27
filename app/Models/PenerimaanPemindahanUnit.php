@@ -30,15 +30,21 @@ final class PenerimaanPemindahanUnit extends Model
         'catatan_verifikasi',
     ];
 
-    protected $casts = [
-        'qty_dikirim' => 'integer',
-        'qty_diterima' => 'integer',
-        'qty_rusak' => 'integer',
-        'qty_diperiksa' => 'decimal:3',
-        'qty_rusak_diperiksa' => 'decimal:3',
-        'diterima_at' => 'datetime',
-        'diverifikasi_at' => 'datetime',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'qty_dikirim' => 'integer',
+            'qty_diterima' => 'integer',
+            'qty_rusak' => 'integer',
+            'qty_diperiksa' => 'decimal:3',
+            'qty_rusak_diperiksa' => 'decimal:3',
+            'diterima_at' => 'datetime',
+            'diverifikasi_at' => 'datetime',
+        ];
+    }
 
     protected $attributes = [
         'status_verifikasi' => 'menunggu_verifikasi',
