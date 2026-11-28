@@ -138,69 +138,7 @@
 
     @media (max-width: 640px) {
         .app-header {
-            height: 56px;
-            padding: 0 12px;
-        }
-
-        .header-left,
-        .header-right {
-            gap: 6px;
-        }
-
-        .mobile-toggle {
-            width: 44px;
-            height: 44px;
-            display: inline-grid;
-            place-items: center;
-            padding: 0;
-        }
-
-        .header-action-btn {
-            width: 44px;
-            height: 44px;
-        }
-
-        .gudang-btn,
-        .gudang-btn-static {
-            max-width: 136px;
-            min-height: 44px;
-        }
-
-        .gudang-name {
-            max-width: 104px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .user-menu-btn {
-            min-width: 44px;
-            min-height: 44px;
-            justify-content: center;
-            padding: 5px;
-        }
-
-        .user-menu-btn > svg {
-            display: none;
-        }
-
-        .gudang-dropdown,
-        .user-dropdown {
-            position: fixed;
-            right: 8px;
-            left: 8px;
-            width: auto;
-            max-height: calc(100dvh - 72px);
-            overflow-y: auto;
-            border-radius: 14px;
-        }
-
-        .gudang-dropdown {
-            top: 64px;
-        }
-
-        .user-dropdown {
-            top: 64px;
+            padding: 0 16px;
         }
     }
 
