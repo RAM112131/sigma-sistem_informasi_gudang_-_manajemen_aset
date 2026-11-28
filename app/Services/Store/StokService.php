@@ -738,6 +738,24 @@ final class StokService
      * }
      */
     /**
+     * Load active warehouse & master catalog items for instant 0ms import autocomplete.
+     *
+     * @return array<int, array{
+     *     kode_barang: string,
+     *     nama_barang: string,
+     *     kategori: string,
+     *     satuan: string,
+     *     satuan_nama: string,
+     *     source: string,
+     *     stok_awal_exists: bool
+     * }>
+     */
+    public function getImportCatalogItems(Gudang $gudang): array
+    {
+        return $this->importService()->getCatalogSnapshot((int) $gudang->getKey());
+    }
+
+    /**
      * Search active warehouse & master catalog items for import autocomplete using vector search.
      *
      * @return array<int, array{

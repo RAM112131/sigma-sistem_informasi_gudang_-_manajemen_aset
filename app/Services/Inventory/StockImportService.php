@@ -31,6 +31,78 @@ final readonly class StockImportService
     ) {}
 
     /**
+     * Load active warehouse items and global master items for instant 0ms client-side autocomplete.
+     *
+     * @return array<int, array{
+     *     kode_barang: string,
+     *     nama_barang: string,
+     *     kategori: string,
+     *     satuan: string,
+     *     satuan_nama: string,
+     *     source: string,
+     *     stok_awal_exists: bool
+     * }>
+     */
+    public function getCatalogSnapshot(int $gudangId): array
+    {
+        $barangResults = Barang::query()
+            ->with(['kategori:id,nama', 'satuan:id,kode,nama'])
+            ->where('gudang_id', $gudangId)
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'kode', 'nama', 'kategori_id', 'satuan_id']);
+
+        $existingStokAwalIds = $barangResults->isEmpty()
+            ? []
+            : StokAwal::query()
+                ->where('gudang_id', $gudangId)
+                ->whereIn('barang_id', $barangResults->pluck('id'))
+                ->pluck('barang_id')
+                ->mapWithKeys(static fn (int|string $id): array => [(int) $id => true])
+                ->all();
+
+        $masterResults = MasterBarang::query()
+            ->with(['kategori:id,nama', 'satuan:id,kode,nama'])
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'kode', 'nama', 'kategori_id', 'satuan_id']);
+
+        $merged = [];
+
+        foreach ($barangResults as $barang) {
+            $codeKey = strtoupper(trim($barang->kode));
+            $merged[$codeKey] = [
+                'kode_barang' => $barang->kode,
+                'nama_barang' => $barang->nama,
+                'kategori' => $barang->kategori?->nama ?? '',
+                'satuan' => $barang->satuan?->kode ?? ($barang->satuan?->nama ?? ''),
+                'satuan_nama' => $barang->satuan?->nama ?? '',
+                'source' => 'barang',
+                'stok_awal_exists' => isset($existingStokAwalIds[(int) $barang->id]),
+            ];
+        }
+
+        foreach ($masterResults as $master) {
+            $codeKey = strtoupper(trim($master->kode));
+            if (isset($merged[$codeKey])) {
+                continue;
+            }
+
+            $merged[$codeKey] = [
+                'kode_barang' => $master->kode,
+                'nama_barang' => $master->nama,
+                'kategori' => $master->kategori?->nama ?? '',
+                'satuan' => $master->satuan?->kode ?? ($master->satuan?->nama ?? ''),
+                'satuan_nama' => $master->satuan?->nama ?? '',
+                'source' => 'master_barang',
+                'stok_awal_exists' => false,
+            ];
+        }
+
+        return array_values($merged);
+    }
+
+    /**
      * Search active warehouse items and global master items using semantic vector search
      * (with automatic text fallback) for import grid autocomplete.
      *

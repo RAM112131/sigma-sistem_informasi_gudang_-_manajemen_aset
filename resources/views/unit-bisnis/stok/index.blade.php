@@ -263,7 +263,7 @@
 
         {{-- ═══════════════════════════════════════════ TAB 2: IMPORT WIZARD ═══ --}}
         @if ($canImportStok)
-            <div x-show="currentTab === 'import_data_awal'" x-cloak x-data="importGridFlow()" x-init="init()">
+            <div x-show="currentTab === 'import_data_awal'" x-cloak x-data="importGridFlow(@js($importCatalogItems ?? []))" x-init="init()">
 
                 {{-- PHASE 0: PASTE DATA --}}
                 <div x-show="phase === 0" x-transition:enter="transition ease-out duration-200"
@@ -272,9 +272,8 @@
                     <div class="card">
                         <div class="card-header">
                             <div>
-                                <h2 class="card-title">Input Saldo Awal Gudang Unit</h2>
-                                <p style="font-size:.82rem;color:var(--text-muted);margin:2px 0 0;">Tempel data dari Excel
-                                    atau isi tabel saldo awal <strong>{{ $activeGudang?->nama }}</strong>.</p>
+                                <h2 class="card-title">Input Stok Awal</h2>
+                                <p style="font-size:.82rem;color:var(--text-muted);margin:2px 0 0;">Import data barang sesuai template atau Isi manual di kolom yang telah disediakan</p>
                             </div>
                             <a href="{{ route('unit-bisnis.stok.import-template') }}" class="btn btn-accent btn-sm"
                                 data-turbo="false">
@@ -299,11 +298,6 @@
 
                     <section class="card stock-paste-card" aria-labelledby="unit-paste-heading">
                         <div class="stock-paste-heading">
-                            <div>
-                                <h2 id="unit-paste-heading" class="card-title">Tempel dari Excel / Edit Data</h2>
-                                <p class="stock-paste-help">Salin baris dari Excel lalu tempel ke tabel, atau isi setiap
-                                    kolom secara manual.</p>
-                            </div>
                             <div class="stock-paste-tools">
                                 <button type="button" class="btn btn-outline btn-sm" @click="addPasteRows()">Tambah 20
                                     baris</button>
@@ -370,12 +364,20 @@
                                             <td><input type="text" x-model="row.catatan"
                                                     placeholder="Catatan opsional" @input="scheduleGridValidation()"
                                                     @paste="handleGridPaste($event, visibleRowIndex, 5)"></td>
-                                            <td>
+                                            <td class="stock-review-cell">
                                                 <template x-if="row._validation">
-                                                    <span class="badge" :class="validationBadgeClass(row._validation)"
-                                                        :title="(row._validation.issues || []).concat(row._validation
-                                                            .warnings || []).join(' | ')"
-                                                        x-text="validationStatusLabel(row._validation)"></span>
+                                                    <div>
+                                                        <span class="badge" :class="validationBadgeClass(row._validation)"
+                                                            :title="(row._validation.issues || []).concat(row._validation
+                                                                .warnings || []).join(' | ')"
+                                                            x-text="validationStatusLabel(row._validation)"></span>
+                                                        <div class="stock-review-detail"
+                                                            :class="{
+                                                                'is-error': row._validation.status === 'error',
+                                                                'is-valid': row._validation.status === 'ok'
+                                                            }"
+                                                            x-text="validationDetailText(row._validation)"></div>
+                                                    </div>
                                                 </template>
                                                 <span x-show="!row._validation && isRowFilled(row)"
                                                     style="font-size:.7rem;color:var(--text-muted);">Menunggu
@@ -393,9 +395,8 @@
                         </div>
 
                         {{-- Floating Vector Search Autocomplete Dropdown --}}
-                        <div x-show="searchActiveRow !== null && (searchLoading || searchSuggestions.length > 0)"
-                            x-cloak class="stock-paste-autocomplete" :style="searchDropdownStyle" role="listbox"
-                            aria-label="Saran barang dari vector search">
+                        <div x-show="searchActiveRow !== null" x-cloak class="stock-paste-autocomplete"
+                            :style="searchDropdownStyle" role="listbox" aria-label="Saran barang dari vector search">
                             <div x-show="searchLoading" class="stock-paste-autocomplete-status">
                                 Mencari barang...
                             </div>
@@ -404,24 +405,34 @@
                                     :class="{ 'is-active': sIdx === searchHighlightedIndex }" role="option"
                                     :aria-selected="sIdx === searchHighlightedIndex"
                                     @mousedown.prevent="selectCatalogSuggestion(item, searchActiveRow)">
-                                    <span class="stock-paste-autocomplete-top">
-                                        <span>
-                                            <span class="stock-paste-autocomplete-code"
-                                                x-text="item.kode_barang"></span>
-                                            <span> &mdash; </span>
-                                            <span x-text="item.nama_barang"></span>
+                                    <span class="stock-paste-autocomplete-line">
+                                        <span class="stock-paste-autocomplete-code">
+                                            <template x-for="(part, pIdx) in highlightParts(item.kode_barang, searchQuery)"
+                                                :key="pIdx">
+                                                <span :class="{ 'stock-paste-highlight': part.match }"
+                                                    x-text="part.text"></span>
+                                            </template>
                                         </span>
-                                        <span class="badge"
-                                            :class="item.stok_awal_exists ? 'badge-warning' : 'badge-success'"
-                                            x-text="item.stok_awal_exists ? 'Sudah ada stok awal' : (item.source === 'barang' ? 'Gudang' : 'Master')"></span>
-                                    </span>
-                                    <span class="stock-paste-autocomplete-meta">
-                                        <span x-text="item.kategori || 'Tanpa Kategori'"></span>
-                                        <span>&middot;</span>
-                                        <span x-text="item.satuan_nama || item.satuan || '-'"></span>
+                                        <span> &mdash; </span>
+                                        <span>
+                                            <template x-for="(part, pIdx) in highlightParts(item.nama_barang, searchQuery)"
+                                                :key="pIdx">
+                                                <span :class="{ 'stock-paste-highlight': part.match }"
+                                                    x-text="part.text"></span>
+                                            </template>
+                                        </span>
                                     </span>
                                 </button>
                             </template>
+                            <div x-show="!searchLoading && searchSuggestions.length === 0"
+                                class="stock-paste-autocomplete-empty" role="alert">
+                                <span class="stock-paste-autocomplete-empty-text">Barang belum ada. Tambahkan terlebih dahulu di Master Barang.</span>
+                                <a href="{{ route('master.barang.index') }}"
+                                    class="btn btn-primary btn-sm stock-paste-autocomplete-cta"
+                                    @mousedown.stop>
+                                    Tambah di Master Barang &rarr;
+                                </a>
+                            </div>
                         </div>
 
                         <div class="stock-paste-pagination">
@@ -624,8 +635,11 @@
 @endpush
 
     <script>
-        function importGridFlow() {
+        function importGridFlow(initialCatalogItems = []) {
             return {
+                catalogItems: Array.isArray(initialCatalogItems) ? initialCatalogItems : [],
+                catalogByCode: new Map(),
+                catalogByName: new Map(),
                 phase: 0,
                 pasteRows: [],
                 pastePage: 1,
@@ -680,6 +694,7 @@
                 importing: false,
                 importResult: {},
                 searchSuggestions: [],
+                searchQuery: '',
                 searchLoading: false,
                 searchActiveRow: null,
                 searchActiveField: null,
@@ -690,7 +705,19 @@
                 searchBlurTimer: null,
 
                 init() {
+                    this.buildCatalogIndexes();
                     this.resetPasteGrid();
+                },
+
+                buildCatalogIndexes() {
+                    this.catalogByCode = new Map();
+                    this.catalogByName = new Map();
+                    for (const item of this.catalogItems) {
+                        const codeKey = String(item.kode_barang ?? '').trim().toUpperCase();
+                        const nameKey = String(item.nama_barang ?? '').trim().toLowerCase();
+                        if (codeKey) this.catalogByCode.set(codeKey, item);
+                        if (nameKey) this.catalogByName.set(nameKey, item);
+                    }
                 },
 
                 openConfirm() {
@@ -786,6 +813,22 @@
                     return 'Error';
                 },
 
+                validationDetailText(val) {
+                    if (!val) return '';
+                    if (val.status === 'error') {
+                        return Array.isArray(val.issues) && val.issues.length > 0
+                            ? val.issues.join(' • ')
+                            : 'Data tidak valid.';
+                    }
+                    if (val.status === 'duplicate') {
+                        return val.dup_reason || 'Duplikat di tabel.';
+                    }
+                    if (val.is_new_barang) {
+                        return 'Barang baru akan dibuat otomatis.';
+                    }
+                    return 'Siap diimpor ke stok awal.';
+                },
+
                 handleGridPaste(event, visibleRowIndex, colIndex) {
                     const clipboardData = event.clipboardData || window.clipboardData;
                     if (!clipboardData) return;
@@ -814,10 +857,126 @@
                 },
 
                 scheduleGridValidation() {
+                    this.validateGridLocally();
                     clearTimeout(this.validationTimer);
                     this.validationTimer = setTimeout(() => {
                         this.analyzeGrid();
-                    }, 500);
+                    }, 600);
+                },
+
+                validateGridLocally() {
+                    const seenKodes = new Map();
+                    const seenNamas = new Map();
+                    const summary = {
+                        total: 0,
+                        ok: 0,
+                        duplicate: 0,
+                        skip: 0,
+                        error: 0,
+                        new_barang: 0,
+                    };
+                    const validated = [];
+
+                    for (let i = 0; i < this.pasteRows.length; i++) {
+                        const row = this.pasteRows[i];
+                        if (!this.isRowFilled(row)) {
+                            row._validation = null;
+                            continue;
+                        }
+
+                        const rowNumber = i + 1;
+                        const issues = [];
+                        const warnings = [];
+                        const kode = String(row.kode_barang ?? '').trim().toUpperCase();
+                        const nama = String(row.nama_barang ?? '').trim();
+                        const lowerNama = nama.toLowerCase();
+                        const kategori = String(row.kategori ?? '').trim();
+                        const satuan = String(row.satuan ?? '').trim().toUpperCase();
+                        const qtyRaw = String(row.qty ?? '').trim();
+                        const numQty = qtyRaw === '' ? NaN : Number(qtyRaw);
+                        const qtyValid = qtyRaw !== '' && Number.isFinite(numQty) && Number.isInteger(numQty) && numQty >= 0;
+
+                        if (!kode) issues.push('kode_barang wajib diisi');
+                        if (!nama) issues.push('nama_barang wajib diisi');
+                        if (!kategori) issues.push('kategori wajib diisi');
+                        if (!satuan) issues.push('satuan wajib diisi');
+
+                        if (qtyRaw === '' || !Number.isFinite(numQty)) {
+                            issues.push('qty harus berupa angka');
+                        } else if (numQty < 0) {
+                            issues.push('qty tidak boleh negatif');
+                        } else if (!Number.isInteger(numQty)) {
+                            issues.push('qty harus berupa bilangan bulat');
+                        }
+
+                        if (kode) {
+                            if (seenKodes.has(kode)) {
+                                issues.push(`Duplikat di tabel: Kode '${kode}' sudah ada di baris ${seenKodes.get(kode)}`);
+                            } else {
+                                seenKodes.set(kode, rowNumber);
+                            }
+                        }
+
+                        if (lowerNama) {
+                            if (seenNamas.has(lowerNama)) {
+                                issues.push(`Duplikat di tabel: Nama '${nama}' sudah ada di baris ${seenNamas.get(lowerNama)}`);
+                            } else {
+                                seenNamas.set(lowerNama, rowNumber);
+                            }
+                        }
+
+                        let isNewBarang = false;
+                        if (issues.length === 0) {
+                            const byKode = this.catalogByCode.get(kode);
+                            const byNama = this.catalogByName.get(lowerNama);
+                            const existing = byKode || byNama;
+
+                            if (byKode && String(byKode.nama_barang ?? '').trim().toLowerCase() !== lowerNama) {
+                                issues.push(`Kode '${kode}' sudah digunakan oleh barang '${byKode.nama_barang}'.`);
+                            } else if (byNama && String(byNama.kode_barang ?? '').trim().toUpperCase() !== kode) {
+                                issues.push(`Nama '${nama}' sudah digunakan dengan kode '${byNama.kode_barang}'.`);
+                            } else if (existing && existing.source === 'barang') {
+                                if (existing.stok_awal_exists) {
+                                    issues.push('Stok awal untuk barang ini sudah pernah tercatat.');
+                                }
+                                const existingSatuan = String(existing.satuan ?? '').trim().toUpperCase();
+                                if (existingSatuan && existingSatuan !== satuan) {
+                                    issues.push(`Satuan tidak cocok: barang existing menggunakan '${existingSatuan}'.`);
+                                }
+                            } else {
+                                isNewBarang = true;
+                                warnings.push(`Barang baru akan dibuat otomatis: ${kode} — ${nama}`);
+                            }
+                        }
+
+                        const status = issues.length === 0 ? 'ok' : 'error';
+                        const result = {
+                            row: rowNumber,
+                            kode_barang: kode,
+                            nama_barang: nama,
+                            kategori: kategori,
+                            satuan: satuan,
+                            qty: qtyValid ? numQty : null,
+                            catatan: String(row.catatan ?? '').trim(),
+                            status,
+                            is_duplicate: false,
+                            dup_reason: null,
+                            is_new_barang: isNewBarang,
+                            issues,
+                            warnings,
+                        };
+
+                        row._validation = result;
+                        validated.push(result);
+                        summary.total++;
+                        summary[status]++;
+                        if (isNewBarang && status === 'ok') {
+                            summary.new_barang++;
+                        }
+                    }
+
+                    this.validatedRows = validated;
+                    this.validSummary = summary;
                 },
 
                 positionCatalogDropdown(inputEl) {
@@ -832,7 +991,7 @@
                 handleCatalogFocus(inputEl, rowIndex, field, query) {
                     clearTimeout(this.searchBlurTimer);
                     const trimmed = String(query ?? '').trim();
-                    if (trimmed.length >= 2) {
+                    if (trimmed.length >= 3) {
                         this.scheduleCatalogSearch(inputEl, rowIndex, field, trimmed);
                     }
                 },
@@ -842,18 +1001,95 @@
                     clearTimeout(this.searchBlurTimer);
                     const trimmed = String(query ?? '').trim();
 
-                    if (trimmed.length < 2) {
+                    if (trimmed.length < 3) {
                         this.closeCatalogSearch();
                         return;
                     }
 
                     this.searchActiveRow = rowIndex;
                     this.searchActiveField = field;
+                    this.searchQuery = trimmed;
                     this.positionCatalogDropdown(inputEl);
 
+                    const localMatches = this.searchLocalCatalog(trimmed, field);
+                    if (localMatches.length > 0) {
+                        this.searchController?.abort();
+                        this.searchLoading = false;
+                        this.searchSuggestions = localMatches;
+                        this.searchHighlightedIndex = 0;
+                        return;
+                    }
+
+                    this.searchSuggestions = [];
+                    this.searchHighlightedIndex = -1;
                     this.searchTimer = setTimeout(() => {
                         this.fetchCatalogSuggestions(trimmed, field, rowIndex);
-                    }, 250);
+                    }, 180);
+                },
+
+                searchLocalCatalog(query, field) {
+                    const q = query.toLowerCase();
+                    const matches = [];
+
+                    for (const item of this.catalogItems) {
+                        const kode = String(item.kode_barang ?? '');
+                        const nama = String(item.nama_barang ?? '');
+                        const kodeLower = kode.toLowerCase();
+                        const namaLower = nama.toLowerCase();
+
+                        const kodeIdx = kodeLower.indexOf(q);
+                        const namaIdx = namaLower.indexOf(q);
+                        if (kodeIdx === -1 && namaIdx === -1) continue;
+
+                        let score = 99;
+                        if (field === 'kode_barang') {
+                            if (kodeLower === q) score = 0;
+                            else if (kodeIdx === 0) score = 1;
+                            else if (kodeIdx > 0) score = 2;
+                            else if (namaIdx === 0) score = 3;
+                            else score = 4;
+                        } else {
+                            if (namaLower === q) score = 0;
+                            else if (namaIdx === 0) score = 1;
+                            else if (namaIdx > 0) score = 2;
+                            else if (kodeIdx === 0) score = 3;
+                            else score = 4;
+                        }
+
+                        matches.push({ item, score });
+                    }
+
+                    matches.sort((a, b) => a.score - b.score);
+                    return matches.slice(0, 10).map(entry => entry.item);
+                },
+
+                highlightParts(text, query) {
+                    const str = String(text ?? '');
+                    const q = String(query ?? '').trim();
+                    if (!str || q.length < 3) {
+                        return [{ text: str, match: false }];
+                    }
+
+                    const lowerStr = str.toLowerCase();
+                    const lowerQ = q.toLowerCase();
+                    const parts = [];
+                    let cursor = 0;
+                    let idx = lowerStr.indexOf(lowerQ, cursor);
+
+                    while (idx !== -1) {
+                        if (idx > cursor) {
+                            parts.push({ text: str.slice(cursor, idx), match: false });
+                        }
+                        parts.push({ text: str.slice(idx, idx + q.length), match: true });
+                        cursor = idx + q.length;
+                        idx = lowerStr.indexOf(lowerQ, cursor);
+                    }
+
+                    if (cursor < str.length) {
+                        parts.push({ text: str.slice(cursor), match: false });
+                    }
+
+                    return parts.length > 0 ? parts : [{ text: str, match: false }];
                 },
 
                 async fetchCatalogSuggestions(query, field, rowIndex) {
@@ -958,6 +1194,7 @@
                     this.searchActiveRow = null;
                     this.searchActiveField = null;
                     this.searchHighlightedIndex = -1;
+                    this.searchQuery = '';
                     this.searchSuggestions = [];
                 },
 

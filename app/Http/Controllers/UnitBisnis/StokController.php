@@ -69,6 +69,7 @@ final class StokController extends Controller
             'activeTab' => $activeTab,
             'activeGudang' => $activeGudang,
             'gudangUnits' => $gudangUnits,
+            'importCatalogItems' => $this->stokService->getImportCatalogItems($activeGudang),
             'stockSummary' => $this->stokService->getStockSummary($activeGudang),
             'stockEditSatuanList' => Satuan::query()
                 ->forGudang((int) $activeGudang->id)
