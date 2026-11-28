@@ -157,9 +157,10 @@ function createMovementChart(canvas, movements) {
           beginAtZero: true,
           ticks: {
             color: '#5B6B79',
-            count: 5,
+            stepSize: 1,
             precision: 0,
             font: { size: 9 },
+            callback: (value) => Number.isInteger(value) ? value : Math.round(value),
           },
           grid: { color: 'rgba(91, 107, 121, 0.16)', borderDash: [2, 4] },
         },
