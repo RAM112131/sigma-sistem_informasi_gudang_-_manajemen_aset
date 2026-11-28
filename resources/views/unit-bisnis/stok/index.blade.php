@@ -275,16 +275,36 @@
                                 <h2 class="card-title">Input Stok Awal</h2>
                                 <p style="font-size:.82rem;color:var(--text-muted);margin:2px 0 0;">Import data barang sesuai template atau Isi manual di kolom yang telah disediakan</p>
                             </div>
-                            <a href="{{ route('unit-bisnis.stok.import-template') }}" class="btn btn-accent btn-sm"
-                                data-turbo="false">
-                                <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2" class="icon-inline">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                    <polyline points="7 10 12 15 17 10" />
-                                    <line x1="12" y1="15" x2="12" y2="3" />
-                                </svg>
-                                Unduh Template CSV
-                            </a>
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                <input type="file" x-ref="importCsvInput" accept=".csv,text/csv"
+                                    style="display:none;" @change="handleCsvFileImport($event)">
+                                <button type="button" class="btn btn-primary btn-sm"
+                                    @click="$refs.importCsvInput.click()">
+                                    <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" class="icon-inline">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                        <polyline points="17 8 12 3 7 8" />
+                                        <line x1="12" y1="3" x2="12" y2="15" />
+                                    </svg>
+                                    Import Barang
+                                </button>
+                                <a href="{{ route('unit-bisnis.stok.import-template') }}" class="btn btn-accent btn-sm"
+                                    data-turbo="false">
+                                    <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" class="icon-inline">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                        <polyline points="7 10 12 15 17 10" />
+                                        <line x1="12" y1="15" x2="12" y2="3" />
+                                    </svg>
+                                    Unduh Template CSV
+                                </a>
+                            </div>
+                        </div>
+
+                        <div x-show="csvImportMessage" x-cloak
+                            style="margin-top:10px;padding:8px 12px;border-radius:var(--radius);font-size:.8rem;"
+                            :style="csvImportError ? 'background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;' : 'background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;'"
+                            x-text="csvImportMessage">
                         </div>
 
                         {{-- Info strip --}}
@@ -749,6 +769,8 @@
                 searchBlurTimer: null,
                 reviewPopoverRow: null,
                 reviewPopoverStyle: '',
+                csvImportMessage: '',
+                csvImportError: false,
 
                 init() {
                     this.buildCatalogIndexes();
@@ -781,6 +803,8 @@
                         length: 15
                     }, () => this.emptyPasteRow());
                     this.pastePage = 1;
+                    this.csvImportMessage = '';
+                    this.csvImportError = false;
                     this.validSummary = {
                         total: 0,
                         ok: 0,
@@ -922,6 +946,140 @@
 
                 closeReviewPopover() {
                     this.reviewPopoverRow = null;
+                },
+
+                parseCsvRows(rawText) {
+                    const text = String(rawText ?? '').replace(/^\uFEFF/, '');
+                    const firstLine = text.split(/\r\n|\n|\r/, 1)[0] || '';
+                    const delimiter = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ';' : ',';
+                    const rows = [];
+                    let currentRow = [];
+                    let currentCell = '';
+                    let inQuotes = false;
+
+                    for (let i = 0; i < text.length; i++) {
+                        const ch = text[i];
+                        if (inQuotes) {
+                            if (ch === '"') {
+                                if (text[i + 1] === '"') {
+                                    currentCell += '"';
+                                    i++;
+                                } else {
+                                    inQuotes = false;
+                                }
+                            } else {
+                                currentCell += ch;
+                            }
+                        } else if (ch === '"') {
+                            inQuotes = true;
+                        } else if (ch === delimiter) {
+                            currentRow.push(currentCell.trim());
+                            currentCell = '';
+                        } else if (ch === '\r' || ch === '\n') {
+                            if (ch === '\r' && text[i + 1] === '\n') i++;
+                            currentRow.push(currentCell.trim());
+                            if (currentRow.some(cell => cell !== '')) {
+                                rows.push(currentRow);
+                            }
+                            currentRow = [];
+                            currentCell = '';
+                        } else {
+                            currentCell += ch;
+                        }
+                    }
+
+                    currentRow.push(currentCell.trim());
+                    if (currentRow.some(cell => cell !== '')) {
+                        rows.push(currentRow);
+                    }
+
+                    return rows;
+                },
+
+                async handleCsvFileImport(event) {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (!file) return;
+
+                    const t0 = performance.now();
+                    this.csvImportMessage = '';
+                    this.csvImportError = false;
+
+                    try {
+                        const rawText = await file.text();
+                        const parsed = this.parseCsvRows(rawText);
+                        if (parsed.length === 0) {
+                            this.csvImportError = true;
+                            this.csvImportMessage = 'File CSV kosong atau tidak memiliki baris data.';
+                            return;
+                        }
+
+                        const defaultKeys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'];
+                        const headerAliases = {
+                            kode_barang: 'kode_barang',
+                            kode: 'kode_barang',
+                            nama_barang: 'nama_barang',
+                            nama: 'nama_barang',
+                            kategori: 'kategori',
+                            satuan: 'satuan',
+                            qty: 'qty',
+                            qty_fisik: 'qty',
+                            jumlah: 'qty',
+                            stok: 'qty',
+                            harga_satuan: 'harga_satuan',
+                            harga: 'harga_satuan',
+                            harga_item: 'harga_satuan',
+                            harga_per_item: 'harga_satuan',
+                            minimum_stok: 'minimum_stok',
+                            stok_minimum: 'minimum_stok',
+                            min_stok: 'minimum_stok',
+                            catatan: 'catatan',
+                            keterangan: 'catatan',
+                        };
+
+                        const normalizedFirst = parsed[0].map(cell =>
+                            String(cell ?? '').trim().toLowerCase().replace(/[\s\/-]+/g, '_')
+                        );
+                        const hasHeader = normalizedFirst.some(cell => headerAliases[cell]);
+                        const columnMap = hasHeader
+                            ? normalizedFirst.map(cell => headerAliases[cell] ?? null)
+                            : defaultKeys;
+                        const dataRows = hasHeader ? parsed.slice(1) : parsed;
+
+                        if (dataRows.length === 0) {
+                            this.csvImportError = true;
+                            this.csvImportMessage = 'Tidak ada baris data setelah header di file CSV.';
+                            return;
+                        }
+
+                        const importedRows = dataRows.map(cells => {
+                            const row = this.emptyPasteRow();
+                            cells.forEach((value, idx) => {
+                                const fieldKey = columnMap[idx];
+                                if (fieldKey) {
+                                    row[fieldKey] = String(value ?? '').trim();
+                                }
+                            });
+                            return row;
+                        });
+
+                        while (importedRows.length < 15) {
+                            importedRows.push(this.emptyPasteRow());
+                        }
+
+                        this.closeCatalogSearch();
+                        this.closeReviewPopover();
+                        this.pasteRows = importedRows;
+                        this.pastePage = 1;
+                        this.scheduleGridValidation();
+
+                        const elapsedMs = Math.max(0.1, performance.now() - t0).toFixed(1);
+                        this.csvImportError = false;
+                        this.csvImportMessage = `${dataRows.length} baris berhasil dimuat ke tabel dalam ${elapsedMs} ms.`;
+                    } catch (err) {
+                        this.csvImportError = true;
+                        this.csvImportMessage = 'Gagal membaca file CSV: ' + (err?.message || 'Format tidak didukung.');
+                    }
                 },
 
                 handleGridPaste(event, visibleRowIndex, colIndex) {

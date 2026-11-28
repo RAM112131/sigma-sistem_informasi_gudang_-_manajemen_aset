@@ -203,6 +203,7 @@ final class StokController extends Controller
 
         return response()->stream(function () {
             $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
             fputcsv($handle, ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan']);
             fputcsv($handle, ['SKH-001', 'Ayam Broiler Karkas Frozen', 'Karkas Ayam & Parting Sukahati', 'Ekor', '120', '35000', '10', 'Stok fisik opname unit awal']);
             fputcsv($handle, ['SKH-002', 'Daging Fillet Dada Ayam', 'Karkas Ayam & Parting Sukahati', 'Kilogram', '45', '48000', '5', 'Stok fisik opname unit awal']);

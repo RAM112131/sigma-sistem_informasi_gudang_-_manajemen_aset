@@ -43,6 +43,8 @@ final class UnitStockInitialImportTest extends TestCase
             ->assertSee('scheduleGridValidation()', false)
             ->assertSee('Barang belum ada. Tambahkan terlebih dahulu di Master Barang.')
             ->assertSee(route('master.barang.index'), false)
+            ->assertSee('Import Barang')
+            ->assertSee('handleCsvFileImport($event)', false)
             ->assertSee('Unduh Template CSV')
             ->assertDontSee('Unggah file Excel atau CSV')
             ->assertDontSee('accept=".xlsx,.xls,.csv"', false)
