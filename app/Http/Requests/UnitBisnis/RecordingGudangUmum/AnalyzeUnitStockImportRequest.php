@@ -38,7 +38,6 @@ final class AnalyzeUnitStockImportRequest extends FormRequest
             'rows.*.kategori' => ['nullable', 'string', 'max:255'],
             'rows.*.satuan' => ['nullable', 'string', 'max:50'],
             'rows.*.qty' => ['nullable', 'string', 'max:50'],
-            'rows.*.kondisi' => ['nullable', 'string', 'max:100'],
             'rows.*.catatan' => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -292,7 +292,7 @@
                         <div
                             style="margin-top:14px;padding:12px 14px;background:rgba(20,92,84,.05);border:1px solid rgba(20,92,84,.15);border-radius:var(--radius);font-size:.79rem;color:var(--text-muted);">
                             <strong style="color:var(--brand-primary);">Kolom template:</strong>
-                            <code style="margin-left:6px;">kode_barang · nama_barang · kategori · satuan · qty · kondisi ·
+                            <code style="margin-left:6px;">kode_barang · nama_barang · kategori · satuan · qty ·
                                 catatan</code>
                         </div>
                     </div>
@@ -359,12 +359,9 @@
                                             <td><input type="number" min="0" step="1" x-model="row.qty"
                                                     placeholder="0" @input="scheduleGridValidation()"
                                                     @paste="handleGridPaste($event, visibleRowIndex, 4)"></td>
-                                            <td><input type="text" x-model="row.kondisi" placeholder="baik"
-                                                    @input="scheduleGridValidation()"
-                                                    @paste="handleGridPaste($event, visibleRowIndex, 5)"></td>
                                             <td><input type="text" x-model="row.catatan"
                                                     placeholder="Catatan opsional" @input="scheduleGridValidation()"
-                                                    @paste="handleGridPaste($event, visibleRowIndex, 6)"></td>
+                                                    @paste="handleGridPaste($event, visibleRowIndex, 5)"></td>
                                             <td>
                                                 <template x-if="row._validation">
                                                     <span class="badge" :class="validationBadgeClass(row._validation)"
@@ -620,11 +617,6 @@
                         required: true
                     },
                     {
-                        key: 'kondisi',
-                        label: 'Kondisi',
-                        required: false
-                    },
-                    {
                         key: 'catatan',
                         label: 'Catatan',
                         required: false
@@ -684,7 +676,6 @@
                         kategori: '',
                         satuan: '',
                         qty: '',
-                        kondisi: 'baik',
                         catatan: ''
                     };
                 },
@@ -755,7 +746,7 @@
 
                     const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
                     const startRow = this.pasteRowIndex(visibleRowIndex);
-                    const keys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'kondisi', 'catatan'];
+                    const keys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'catatan'];
 
                     while (this.pasteRows.length < startRow + lines.length) {
                         this.pasteRows.push(this.emptyPasteRow());
