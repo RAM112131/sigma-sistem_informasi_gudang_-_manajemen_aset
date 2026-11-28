@@ -23,7 +23,7 @@
 
         $tabs = [
             'menunggu_verifikasi' => ['label' => 'Menunggu Diverifikasi', 'count' => $metrics['pending_count']],
-            'sudah_diverifikasi' => ['label' => 'Sudah Diverifikasi', 'count' => $metrics['verified_count']],
+            'sudah_diverifikasi' => ['label' => 'Riwayat', 'count' => $metrics['verified_count']],
             'tindak_lanjut' => ['label' => 'Tindak Lanjut & Klaim', 'count' => $metrics['follow_up_count']],
         ];
     @endphp

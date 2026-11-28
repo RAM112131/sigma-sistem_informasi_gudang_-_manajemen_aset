@@ -215,7 +215,7 @@
                                     @else
                                         <a href="{{ route('unit-bisnis.admin-gu.rekonsiliasi-pengeluaran.index', array_merge($filters, ['pengeluaran_id' => $issue->getKey()])) }}#verification-workspace"
                                             class="inline-flex min-h-10 items-center justify-center gap-1 rounded border border-[#E4E2DC] bg-white px-3 text-xs font-medium text-[#1F2523] transition hover:bg-[#F7F6F3] focus:outline-none focus:ring-2 focus:ring-[#145C54]/30">
-                                            <span>{{ $isPending ? 'Pilih' : 'Lihat hasil' }}</span>
+                                            <span>{{ $isPending ? ($issue->draft_details_count > 0 ? 'Buka Draf' : 'Pilih') : 'Lihat hasil' }}</span>
                                             <svg aria-hidden="true" class="h-3.5 w-3.5" viewBox="0 0 20 20"
                                                 fill="none" stroke="currentColor" stroke-width="1.8">
                                                 <path d="m7 4 6 6-6 6" />
@@ -282,7 +282,7 @@
                             @else
                                 <a href="{{ route('unit-bisnis.admin-gu.rekonsiliasi-pengeluaran.index', array_merge($filters, ['pengeluaran_id' => $issue->getKey()])) }}#verification-workspace"
                                     class="inline-flex min-h-11 shrink-0 items-center justify-center rounded bg-[#145C54] px-3 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#145C54]/30">
-                                    {{ $isPending ? 'Pilih' : 'Lihat' }}
+                                    {{ $isPending ? ($issue->draft_details_count > 0 ? 'Buka Draf' : 'Pilih') : 'Lihat' }}
                                 </a>
                             @endif
                         </div>

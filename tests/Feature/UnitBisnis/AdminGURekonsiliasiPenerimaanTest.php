@@ -49,7 +49,7 @@ final class AdminGURekonsiliasiPenerimaanTest extends TestCase
             ->assertSee('Langsung')
             ->assertSee('PT Supplier Contoh')
             ->assertSee('Menunggu Diverifikasi')
-            ->assertSee('Sudah Diverifikasi')
+            ->assertSee('Riwayat')
             ->assertSee('Tindak Lanjut & Klaim')
             ->assertSee('RCV-FOLLOWUP')
             ->assertDontSee('RCV-PENDING')
