@@ -402,6 +402,19 @@
                 flex-direction: column;
             }
 
+            .store-stock-tabs {
+                width: 100%;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                overscroll-behavior-inline: contain;
+                padding-bottom: 6px;
+                scrollbar-width: none;
+            }
+
+            .store-stock-tabs .btn {
+                min-height: 44px;
+            }
+
             .store-stock-header h1 {
                 font-size: 22px;
             }

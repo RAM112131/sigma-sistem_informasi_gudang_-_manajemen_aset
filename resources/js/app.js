@@ -32,6 +32,21 @@
   document.addEventListener('turbo:load', () => {
     Alpine.initTree(document.body);
 
+    document.querySelectorAll('.table-responsive table.data-table').forEach((table) => {
+      const headings = Array.from(table.querySelectorAll('thead th')).map((heading) =>
+        heading.textContent.trim(),
+      );
+
+      table.classList.add('mobile-data-table');
+      table.querySelectorAll('tbody tr').forEach((row) => {
+        Array.from(row.children).forEach((cell, index) => {
+          if (headings[index]) {
+            cell.dataset.label = headings[index];
+          }
+        });
+      });
+    });
+
     initMasterBarangImport();
 
     if (document.querySelector('[data-admin-gu-dashboard]')) {

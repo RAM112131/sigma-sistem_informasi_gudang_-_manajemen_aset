@@ -2,7 +2,8 @@
     <div class="header-left">
         {{-- Hamburger trigger for mobile sidebar --}}
         <button type="button" class="mobile-toggle" @click="sidebarOpen = !sidebarOpen"
-            aria-label="Toggle navigasi sidebar">
+            aria-label="Toggle navigasi sidebar" aria-controls="app-navigation"
+            :aria-expanded="sidebarOpen.toString()">
             <svg style="width: 20px; height: 20px;" width="20" height="20" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" class="icon-inline">
                 <line x1="3" y1="12" x2="21" y2="12" />

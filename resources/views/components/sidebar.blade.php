@@ -1,4 +1,4 @@
-<aside class="app-sidebar" :class="{ 'show': sidebarOpen }" x-cloak>
+<aside id="app-navigation" class="app-sidebar" :class="{ 'show': sidebarOpen }" x-cloak>
     {{-- Sidebar Header --}}
     <div class="sidebar-header">
         <a href="{{ route('welcome') }}" class="sidebar-brand">
@@ -12,7 +12,8 @@
                 <span class="brand-subtitle">Sistem Informasi Gudang &amp; Manajemen Aset</span>
             </div>
         </a>
-        <button type="button" class="sidebar-close-btn" @click="sidebarOpen = false">&times;</button>
+        <button type="button" class="sidebar-close-btn" @click="sidebarOpen = false"
+            aria-label="Tutup navigasi">&times;</button>
     </div>
 
     @php
@@ -138,7 +139,7 @@
     @endphp
 
     {{-- Sidebar Nav Scroll Area --}}
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" @click="sidebarOpen = false">
 
         {{-- Group 1: Dashboard Utama --}}
         <div class="nav-group">
