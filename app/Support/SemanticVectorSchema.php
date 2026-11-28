@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 final class SemanticVectorSchema
@@ -24,21 +25,28 @@ final class SemanticVectorSchema
         }
 
         static $columnAvailability = [];
-        $cacheKey = DB::getDefaultConnection().':'.$table;
+        $connectionName = DB::getDefaultConnection();
+        $cacheKey = $connectionName.':'.$table;
 
         if (array_key_exists($cacheKey, $columnAvailability)) {
             return $columnAvailability[$cacheKey];
         }
 
-        $column = DB::selectOne(
-            'SELECT format_type(attribute.atttypid, attribute.atttypmod) AS type
-             FROM pg_attribute AS attribute
-             WHERE attribute.attrelid = to_regclass(?)
-               AND attribute.attname = ?
-               AND NOT attribute.attisdropped',
-            [$table, 'embedding_search'],
-        );
+        return $columnAvailability[$cacheKey] = (bool) Cache::remember(
+            'semantic_vector_col:'.$cacheKey,
+            3600,
+            static function () use ($table): bool {
+                $column = DB::selectOne(
+                    'SELECT format_type(attribute.atttypid, attribute.atttypmod) AS type
+                     FROM pg_attribute AS attribute
+                     WHERE attribute.attrelid = to_regclass(?)
+                       AND attribute.attname = ?
+                       AND NOT attribute.attisdropped',
+                    [$table, 'embedding_search'],
+                );
 
-        return $columnAvailability[$cacheKey] = ($column->type ?? null) === 'vector(1536)';
+                return ($column->type ?? null) === 'vector(1536)';
+            },
+        );
     }
 }

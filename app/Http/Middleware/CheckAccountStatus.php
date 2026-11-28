@@ -25,7 +25,11 @@ class CheckAccountStatus
             return $next($request);
         }
 
-        $user = User::withTrashed()->find($userId);
+        // Reuse the already-authenticated user to avoid a duplicate DB query on every request.
+        $user = $request->user();
+        if (! $user instanceof User || (int) $user->getAuthIdentifier() !== (int) $userId) {
+            $user = User::withTrashed()->find($userId);
+        }
 
         $errorMessage = match (true) {
             $user === null => 'Sesi dihentikan: Akun Anda telah dihapus secara permanen.',

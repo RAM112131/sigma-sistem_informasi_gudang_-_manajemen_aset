@@ -11,6 +11,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Role;
 
 class DashboardService
@@ -41,23 +42,44 @@ class DashboardService
      */
     public function getDashboardData(array $filters): array
     {
-        $totalRoles = Role::count();
-        $defaultRoles = Role::whereIn('name', self::DEFAULT_ROLE_NAMES)->count();
-        $stats = [
-            'total_users' => User::count(),
-            'active_users' => User::where('is_aktif', true)->count(),
-            'total_roles' => $totalRoles,
-            'default_roles' => $defaultRoles,
-            'custom_roles' => $totalRoles - $defaultRoles,
-            'active_gudangs' => Gudang::where('is_aktif', true)->count(),
-            'active_store_gudangs' => Gudang::where('is_aktif', true)
-                ->whereIn('jenis', self::STORE_WAREHOUSE_TYPES)
-                ->count(),
-            'active_business_gudangs' => Gudang::where('is_aktif', true)
-                ->whereIn('jenis', self::BUSINESS_WAREHOUSE_TYPES)
-                ->count(),
-            'audit_logs_today' => AuditLog::whereDate('created_at', today())->count(),
-        ];
+        $cachedSummary = Cache::remember('super_admin_dashboard_summary', 60, static function (): array {
+            $availableRoles = Role::query()->orderBy('name')->pluck('name');
+            $totalRoles = $availableRoles->count();
+            $defaultRoles = $availableRoles->intersect(self::DEFAULT_ROLE_NAMES)->count();
+
+            $userStats = User::query()
+                ->toBase()
+                ->selectRaw('COUNT(*) AS total_users')
+                ->selectRaw('COUNT(CASE WHEN is_aktif = true THEN 1 END) AS active_users')
+                ->first();
+
+            $storeTypes = implode("','", self::STORE_WAREHOUSE_TYPES);
+            $businessTypes = implode("','", self::BUSINESS_WAREHOUSE_TYPES);
+            $gudangStats = Gudang::query()
+                ->toBase()
+                ->where('is_aktif', true)
+                ->selectRaw('COUNT(*) AS active_gudangs')
+                ->selectRaw("COUNT(CASE WHEN jenis IN ('{$storeTypes}') THEN 1 END) AS active_store_gudangs")
+                ->selectRaw("COUNT(CASE WHEN jenis IN ('{$businessTypes}') THEN 1 END) AS active_business_gudangs")
+                ->first();
+
+            return [
+                'availableRoles' => $availableRoles->all(),
+                'stats' => [
+                    'total_users' => (int) ($userStats->total_users ?? 0),
+                    'active_users' => (int) ($userStats->active_users ?? 0),
+                    'total_roles' => $totalRoles,
+                    'default_roles' => $defaultRoles,
+                    'custom_roles' => $totalRoles - $defaultRoles,
+                    'active_gudangs' => (int) ($gudangStats->active_gudangs ?? 0),
+                    'active_store_gudangs' => (int) ($gudangStats->active_store_gudangs ?? 0),
+                    'active_business_gudangs' => (int) ($gudangStats->active_business_gudangs ?? 0),
+                    'audit_logs_today' => AuditLog::whereDate('created_at', today())->count(),
+                ],
+            ];
+        });
+
+        $stats = $cachedSummary['stats'];
 
         $recentUsers = User::query()
             ->with([
@@ -120,7 +142,7 @@ class DashboardService
         return [
             'stats' => $stats,
             'recentUsers' => $recentUsers,
-            'availableRoles' => Role::query()->orderBy('name')->pluck('name'),
+            'availableRoles' => collect($cachedSummary['availableRoles']),
             'recentSystemLogs' => $recentSystemLogs,
         ];
     }

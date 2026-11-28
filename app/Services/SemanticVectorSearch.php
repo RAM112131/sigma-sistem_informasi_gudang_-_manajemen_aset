@@ -39,6 +39,11 @@ final class SemanticVectorSearch
             return $query;
         }
 
+        $provider = (string) config('semantic_search.provider', 'openai');
+        if ($provider === 'openai' && empty(config('ai.providers.openai.key')) && empty(env('OPENAI_API_KEY'))) {
+            return $this->applyTextSearch($query, $table, $search);
+        }
+
         if (! SemanticVectorSchema::hasVectorColumn($table)) {
             return $this->applyTextSearch($query, $table, $search);
         }

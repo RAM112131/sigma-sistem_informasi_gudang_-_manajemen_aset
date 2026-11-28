@@ -170,8 +170,66 @@ final class MasterBarangImportService
 
         DB::transaction(function () use ($warehouses, $masterBarangService, &$resultRows, &$successCount, &$registeredWarehouseCount): void {
             $warehousesById = $warehouses->keyBy('id');
+            $warehouseIds = $warehouses->modelKeys();
             $createdCategories = [];
             $createdUnits = [];
+
+            $activeRows = array_filter(
+                $resultRows,
+                static fn (array $row): bool => in_array($row['status'], ['new', 'reused'], true),
+            );
+            $categoryIds = collect($activeRows)
+                ->flatMap(static fn (array $row): array => array_column($row['target_references'] ?? [], 'kategori_id'))
+                ->filter()
+                ->unique()
+                ->values();
+            $unitIds = collect($activeRows)
+                ->flatMap(static fn (array $row): array => array_column($row['target_references'] ?? [], 'satuan_id'))
+                ->filter()
+                ->unique()
+                ->values();
+            $codes = collect($activeRows)->pluck('kode_barang')->filter()->unique()->values();
+
+            $categoriesById = $categoryIds->isEmpty()
+                ? collect()
+                : KategoriBarang::query()->whereIn('id', $categoryIds)->get()->keyBy('id');
+            $unitsById = $unitIds->isEmpty()
+                ? collect()
+                : Satuan::query()->whereIn('id', $unitIds)->get()->keyBy('id');
+            $mastersByCode = $codes->isEmpty()
+                ? collect()
+                : MasterBarang::withTrashed()
+                    ->with(['kategori:id,nama', 'satuan:id,nama'])
+                    ->whereIn('kode', $codes)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('kode');
+            $masterIds = $mastersByCode->pluck('id')->filter()->values();
+
+            $existingBarangs = ($warehouseIds === [] || ($codes->isEmpty() && $masterIds->isEmpty()))
+                ? collect()
+                : Barang::withTrashed()
+                    ->whereIn('gudang_id', $warehouseIds)
+                    ->where(static function (Builder $query) use ($codes, $masterIds): void {
+                        if ($codes->isNotEmpty()) {
+                            $query->whereIn('kode', $codes);
+                        }
+                        if ($masterIds->isNotEmpty()) {
+                            $method = $codes->isNotEmpty() ? 'orWhereIn' : 'whereIn';
+                            $query->{$method}('master_barang_id', $masterIds);
+                        }
+                    })
+                    ->get(['id', 'gudang_id', 'master_barang_id', 'kode', 'deleted_at']);
+
+            $barangsByWarehouseCode = [];
+            $barangsByWarehouseMaster = [];
+            foreach ($existingBarangs as $existingBarang) {
+                $barangsByWarehouseCode[(int) $existingBarang->gudang_id][$existingBarang->kode] ??= [];
+                $barangsByWarehouseCode[(int) $existingBarang->gudang_id][$existingBarang->kode][] = $existingBarang;
+                if ($existingBarang->master_barang_id !== null) {
+                    $barangsByWarehouseMaster[(int) $existingBarang->gudang_id][(int) $existingBarang->master_barang_id] = $existingBarang;
+                }
+            }
 
             foreach ($resultRows as &$row) {
                 if (! in_array($row['status'], ['new', 'reused'], true)) {
@@ -187,10 +245,10 @@ final class MasterBarangImportService
                         ]);
                     }
                     $category = $targetReference['kategori_id'] !== null
-                        ? KategoriBarang::query()->findOrFail($targetReference['kategori_id'])
+                        ? ($categoriesById->get($targetReference['kategori_id']) ?? KategoriBarang::query()->findOrFail($targetReference['kategori_id']))
                         : $this->resolveImportCategory($row['kategori'], $createdCategories);
                     $unit = $targetReference['satuan_id'] !== null
-                        ? Satuan::query()->findOrFail($targetReference['satuan_id'])
+                        ? ($unitsById->get($targetReference['satuan_id']) ?? Satuan::query()->findOrFail($targetReference['satuan_id']))
                         : $this->resolveImportUnit($row['satuan'], $row['satuan_kode'], $createdUnits);
                     $firstResolvedUnit ??= $unit;
                     $targetReference['kategori_id'] = $category->id;
@@ -205,11 +263,7 @@ final class MasterBarangImportService
                 $row['satuan_kode'] = $firstResolvedUnit?->kode ?? $row['satuan_kode'];
                 $row['preparation_notes'] = [];
 
-                $master = MasterBarang::withTrashed()
-                    ->with(['kategori:id,nama', 'satuan:id,nama'])
-                    ->where('kode', $row['kode_barang'])
-                    ->lockForUpdate()
-                    ->first();
+                $master = $mastersByCode->get($row['kode_barang']);
 
                 if ($master instanceof MasterBarang && ($master->trashed() || ! $master->is_aktif)) {
                     throw ValidationException::withMessages([
@@ -230,14 +284,16 @@ final class MasterBarangImportService
                 }
 
                 $codeUsedByAnotherItem = $warehouses->contains(
-                    fn (Gudang $warehouse): bool => Barang::withTrashed()
-                        ->where('gudang_id', $warehouse->id)
-                        ->where('kode', $row['kode_barang'])
-                        ->when(
-                            $master instanceof MasterBarang,
-                            fn (Builder $query): Builder => $query->where('master_barang_id', '!=', $master->id),
-                        )
-                        ->exists(),
+                    static function (Gudang $warehouse) use ($barangsByWarehouseCode, $row, $master): bool {
+                        $matches = $barangsByWarehouseCode[(int) $warehouse->id][$row['kode_barang']] ?? [];
+                        foreach ($matches as $candidate) {
+                            if (! $master instanceof MasterBarang || (int) $candidate->master_barang_id !== (int) $master->id) {
+                                return true;
+                            }
+                        }
+
+                        return false;
+                    },
                 );
 
                 if ($codeUsedByAnotherItem) {
@@ -254,15 +310,13 @@ final class MasterBarangImportService
                         'satuan_id' => $row['satuan_id'],
                         'deskripsi' => $row['deskripsi'] !== '' ? $row['deskripsi'] : null,
                     ]);
+                    $mastersByCode->put($master->kode, $master);
                 }
 
                 $registeredForRow = 0;
 
                 foreach ($warehouses as $warehouse) {
-                    $existingBarang = Barang::withTrashed()
-                        ->where('gudang_id', $warehouse->id)
-                        ->where('master_barang_id', $master->id)
-                        ->first();
+                    $existingBarang = $barangsByWarehouseMaster[(int) $warehouse->id][(int) $master->id] ?? null;
 
                     if ($existingBarang instanceof Barang && ! $existingBarang->trashed()) {
                         continue;
@@ -271,7 +325,7 @@ final class MasterBarangImportService
                     $targetReference = collect($row['target_references'])
                         ->firstWhere('warehouse_id', $warehouse->id);
 
-                    $masterBarangService->registerInWarehouse(
+                    $registeredBarang = $masterBarangService->registerInWarehouse(
                         $master,
                         $warehouse,
                         null,
@@ -279,6 +333,7 @@ final class MasterBarangImportService
                         (int) $targetReference['kategori_id'],
                         (int) $targetReference['satuan_id'],
                     );
+                    $barangsByWarehouseMaster[(int) $warehouse->id][(int) $master->id] = $registeredBarang;
                     $registeredForRow++;
                 }
 
@@ -296,6 +351,8 @@ final class MasterBarangImportService
             }
             unset($row);
         });
+
+        MasterBarangService::clearReferenceCache();
 
         return [
             'rows' => $resultRows,

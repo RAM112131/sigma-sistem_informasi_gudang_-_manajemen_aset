@@ -6,7 +6,6 @@ namespace App\Services\Store;
 
 use App\Models\Gudang;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 
 final class GudangStoreService
 {
@@ -28,16 +27,35 @@ final class GudangStoreService
             );
         }
 
+        $isSuperAdmin = $user->hasAnyRole(['Super Admin', 'super_admin']);
+
+        if (! $isSuperAdmin) {
+            $user->loadMissing([
+                'gudang' => static fn ($query) => $query->orderBy('gudangs.nama'),
+            ]);
+            $assigned = $user->gudang
+                ->filter(static fn (Gudang $gudang): bool => (bool) $gudang->is_aktif
+                    && in_array($gudang->jenis, $warehouseTypes, true))
+                ->sortBy('nama')
+                ->values();
+
+            $warehouse = null;
+            if ($requestedId) {
+                $warehouse = $assigned->firstWhere('id', (int) $requestedId);
+                abort_unless($warehouse instanceof Gudang, 403, 'Anda belum ditugaskan ke Gudang Store aktif.');
+            } elseif ($fallbackId && is_numeric($fallbackId)) {
+                $warehouse = $assigned->firstWhere('id', (int) $fallbackId);
+            }
+
+            $warehouse ??= $assigned->first();
+            abort_unless($warehouse instanceof Gudang, 403, 'Anda belum ditugaskan ke Gudang Store aktif.');
+
+            return $warehouse;
+        }
+
         $query = Gudang::query()
             ->where('is_aktif', true)
             ->whereIn('jenis', $warehouseTypes);
-
-        if (! $user->hasAnyRole(['Super Admin', 'super_admin'])) {
-            $query->whereHas(
-                'users',
-                fn (Builder $users): Builder => $users->whereKey($user->getKey()),
-            );
-        }
 
         if ($requestedId) {
             $warehouse = (clone $query)->whereKey((int) $requestedId)->first();
@@ -71,26 +89,46 @@ final class GudangStoreService
 
         abort_unless($hasPermission, 403);
 
+        $storeTypes = ['holding', 'global_master', 'gudang_store'];
+        if (! $isSuperAdmin) {
+            $user->loadMissing([
+                'gudang' => static fn ($query) => $query->orderBy('gudangs.nama'),
+            ]);
+            $assigned = $user->gudang
+                ->filter(static fn (Gudang $gudang): bool => (bool) $gudang->is_aktif
+                    && in_array($gudang->jenis, $storeTypes, true))
+                ->sortBy('nama')
+                ->values();
+
+            if ($assigned->isNotEmpty()) {
+                $warehouse = $requestedId
+                    ? $assigned->firstWhere('id', (int) $requestedId)
+                    : null;
+                $warehouse ??= $assigned->first();
+
+                abort_unless($warehouse instanceof Gudang, 403, 'Gudang Store aktif tidak ditemukan.');
+
+                return [
+                    'warehouse' => $warehouse,
+                    'remember' => true,
+                ];
+            }
+        }
+
         $baseQuery = Gudang::query()
             ->where('is_aktif', true)
-            ->whereIn('jenis', ['holding', 'global_master', 'gudang_store']);
-        $userWarehouseQuery = (clone $baseQuery)
-            ->whereHas('users', fn (Builder $users): Builder => $users->whereKey($user->getKey()));
-        $hasAssignedWarehouse = $userWarehouseQuery->exists();
-        $query = $hasAssignedWarehouse && ! $isSuperAdmin
-            ? $userWarehouseQuery
-            : $baseQuery;
+            ->whereIn('jenis', $storeTypes);
 
         $warehouse = $requestedId
-            ? (clone $query)->whereKey((int) $requestedId)->first()
+            ? (clone $baseQuery)->whereKey((int) $requestedId)->first()
             : null;
-        $warehouse ??= $query->orderBy('nama')->first();
+        $warehouse ??= $baseQuery->orderBy('nama')->first();
 
         abort_unless($warehouse instanceof Gudang, 403, 'Gudang Store aktif tidak ditemukan.');
 
         return [
             'warehouse' => $warehouse,
-            'remember' => $hasAssignedWarehouse || $isSuperAdmin,
+            'remember' => $isSuperAdmin,
         ];
     }
 }

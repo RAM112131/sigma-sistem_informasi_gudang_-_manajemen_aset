@@ -66,6 +66,10 @@ final class StokController extends Controller
             ? $this->unitGudangService->getAssignedGudangUnits($user)
             : collect();
 
+        $stockEditSatuanList = $listingData['satuanList']
+            ->filter(static fn (Satuan $satuan): bool => $satuan->gudang_id === null || (int) $satuan->gudang_id === (int) $activeGudang->id)
+            ->values();
+
         return view('unit-bisnis.stok.index', [
             ...$listingData,
             'search' => $search,
@@ -76,11 +80,7 @@ final class StokController extends Controller
             'gudangUnits' => $gudangUnits,
             'importCatalogItems' => $this->stokService->getImportCatalogItems($activeGudang),
             'stockSummary' => $this->stokService->getStockSummary($activeGudang),
-            'stockEditSatuanList' => Satuan::query()
-                ->forGudang((int) $activeGudang->id)
-                ->where('is_aktif', true)
-                ->orderBy('nama')
-                ->get(['id', 'nama']),
+            'stockEditSatuanList' => $stockEditSatuanList,
         ]);
     }
 

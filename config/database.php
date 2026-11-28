@@ -86,29 +86,37 @@ return [
         ],
 
         'pgsql' => [
-    'driver' => 'pgsql',
-    'url' => env('DB_URL'),
-    'host' => env('DB_HOST', '127.0.0.1'),
-    'port' => env('DB_PORT', '5432'),
-    'database' => env('DB_DATABASE', 'laravel'),
-    'username' => env('DB_USERNAME', 'root'),
-    'password' => env('DB_PASSWORD', ''),
-    'charset' => 'utf8',
-    'prefix' => '',
-    'prefix_indexes' => true,
-    'search_path' => 'public',
-    'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
 
-    'pooled' => env('DB_POOLED', false),
+            'pooled' => env('DB_POOLED', false),
 
-    'direct' => array_filter([
-        'host' => env('DB_DIRECT_HOST'),
-        'port' => env('DB_DIRECT_PORT'),
-        'username' => env('DB_DIRECT_USERNAME'),
-        'password' => env('DB_DIRECT_PASSWORD'),
-        'sslmode' => env('DB_DIRECT_SSLMODE'),
-    ]),
-],
+            'options' => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql') ? array_filter([
+                PDO::ATTR_PERSISTENT => filter_var(env('DB_PERSISTENT', false), FILTER_VALIDATE_BOOLEAN) ?: null,
+            ]) : [],
+
+            'options' => extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql') ? array_filter([
+                PDO::ATTR_PERSISTENT => filter_var(env('DB_PERSISTENT', false), FILTER_VALIDATE_BOOLEAN) ?: null,
+            ]) : [],
+
+            'direct' => array_filter([
+                'host' => env('DB_DIRECT_HOST'),
+                'port' => env('DB_DIRECT_PORT'),
+                'username' => env('DB_DIRECT_USERNAME'),
+                'password' => env('DB_DIRECT_PASSWORD'),
+                'sslmode' => env('DB_DIRECT_SSLMODE'),
+            ]),
+        ],
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',

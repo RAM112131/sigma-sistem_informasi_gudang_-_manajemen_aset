@@ -563,140 +563,129 @@ final readonly class StockImportService
                         ->mapWithKeys(static fn (Satuan $satuan): array => [strtoupper($satuan->kode) => $satuan])
                         ->all();
 
+                $stokAwalBatch = [];
+                $now = now();
+
                 foreach ($chunk as $index => $row) {
                     try {
-                        DB::transaction(function () use (
-                            $row,
-                            $gudangId,
-                            $userId,
-                            $tanggalAcuan,
-                            $catatanUmum,
-                            $gudang,
-                            $masterIndexes,
-                            &$barangsByCode,
-                            &$barangsByName,
-                            &$existingStokAwalIds,
-                            &$categoriesByName,
-                            &$satuansByCode,
-                            &$success,
-                            &$created,
-                        ): void {
-                            $kode = strtoupper(trim((string) $row['kode_barang']));
-                            $nama = trim((string) $row['nama_barang']);
-                            $satuanKode = strtoupper(trim((string) $row['satuan']));
-                            $barangByKode = $barangsByCode[$kode] ?? null;
-                            $barangByNama = $barangsByName[mb_strtolower($nama)] ?? null;
-                            $barang = $barangByKode ?? $barangByNama;
+                        $kode = strtoupper(trim((string) $row['kode_barang']));
+                        $nama = trim((string) $row['nama_barang']);
+                        $satuanKode = strtoupper(trim((string) $row['satuan']));
+                        $barangByKode = $barangsByCode[$kode] ?? null;
+                        $barangByNama = $barangsByName[mb_strtolower($nama)] ?? null;
+                        $barang = $barangByKode ?? $barangByNama;
 
-                            if ($barangByKode && mb_strtolower(trim($barangByKode->nama)) !== mb_strtolower($nama)) {
-                                throw new RuntimeException("Kode '{$kode}' sudah digunakan oleh barang '{$barangByKode->nama}'.");
-                            }
-                            if ($barangByNama && strtoupper(trim($barangByNama->kode)) !== $kode) {
-                                throw new RuntimeException("Nama '{$nama}' sudah digunakan dengan kode '{$barangByNama->kode}'.");
-                            }
+                        if ($barangByKode && mb_strtolower(trim($barangByKode->nama)) !== mb_strtolower($nama)) {
+                            throw new RuntimeException("Kode '{$kode}' sudah digunakan oleh barang '{$barangByKode->nama}'.");
+                        }
+                        if ($barangByNama && strtoupper(trim($barangByNama->kode)) !== $kode) {
+                            throw new RuntimeException("Nama '{$nama}' sudah digunakan dengan kode '{$barangByNama->kode}'.");
+                        }
 
-                            $masterConflict = $this->importMasterConflictMessage(
+                        $masterConflict = $this->importMasterConflictMessage(
+                            $kode,
+                            $nama,
+                            $masterIndexes['by_code'],
+                            $masterIndexes['by_name'],
+                            $barang?->master_barang_id === null ? null : (int) $barang->master_barang_id,
+                        );
+
+                        if ($masterConflict !== null) {
+                            throw new RuntimeException($masterConflict);
+                        }
+
+                        if ($barang && isset($existingStokAwalIds[(int) $barang->id])) {
+                            throw new RuntimeException('Stok awal untuk barang ini sudah pernah tercatat di gudang Store.');
+                        }
+
+                        if ($barang && strtoupper(trim($barang->satuan?->kode ?? '')) !== $satuanKode) {
+                            throw new RuntimeException("Satuan tidak cocok: barang existing menggunakan '{$barang->satuan?->kode}'.");
+                        }
+
+                        $masterBarang = $barang?->masterBarang;
+                        if ($masterBarang && ! $masterBarang->is_aktif) {
+                            throw new RuntimeException("Master barang '{$masterBarang->nama}' sedang nonaktif.");
+                        }
+
+                        $categoryName = trim((string) $row['kategori']);
+                        $kategori = $categoriesByName[$categoryName] ?? null;
+                        if (! $kategori) {
+                            $kategori = KategoriBarang::firstOrCreate(
+                                ['gudang_id' => $gudangId, 'nama' => $categoryName],
+                                ['is_aktif' => true]
+                            );
+                            $categoriesByName[$categoryName] = $kategori;
+                        }
+
+                        $satuan = $satuansByCode[$satuanKode] ?? null;
+                        if (! $satuan) {
+                            $satuan = Satuan::create([
+                                'kode' => $satuanKode,
+                                'nama' => ucfirst(strtolower($satuanKode)),
+                                'is_aktif' => true,
+                            ]);
+                            $satuansByCode[$satuanKode] = $satuan;
+                        }
+
+                        if (! $masterBarang) {
+                            $masterBarang = $this->masterBarangService->findOrCreateForLocalCode(
                                 $kode,
                                 $nama,
-                                $masterIndexes['by_code'],
-                                $masterIndexes['by_name'],
-                                $barang?->master_barang_id === null ? null : (int) $barang->master_barang_id,
+                                (int) $kategori->id,
+                                (int) $satuan->id,
                             );
+                        }
 
-                            if ($masterConflict !== null) {
-                                throw new RuntimeException($masterConflict);
+                        $hargaSatuan = isset($row['harga_satuan']) && is_numeric($row['harga_satuan'])
+                            ? max(0.0, (float) $row['harga_satuan'])
+                            : 0.0;
+                        $minimumStok = isset($row['minimum_stok']) && is_numeric($row['minimum_stok'])
+                            ? max(0, (int) $row['minimum_stok'])
+                            : null;
+
+                        if (! $barang) {
+                            $barang = $this->masterBarangService->registerInWarehouse(
+                                $masterBarang,
+                                $gudang,
+                                $kode,
+                                $minimumStok ?? 10,
+                            );
+                            if ($hargaSatuan > 0) {
+                                $barang->update(['harga_satuan' => $hargaSatuan]);
                             }
-
-                            if ($barang && isset($existingStokAwalIds[(int) $barang->id])) {
-                                throw new RuntimeException('Stok awal untuk barang ini sudah pernah tercatat di gudang Store.');
+                            $created++;
+                        } else {
+                            $updates = [];
+                            if (! $barang->master_barang_id) {
+                                $updates['master_barang_id'] = $masterBarang->id;
                             }
-
-                            $categoryName = trim((string) $row['kategori']);
-                            $kategori = $categoriesByName[$categoryName] ?? null;
-                            if (! $kategori) {
-                                $kategori = KategoriBarang::firstOrCreate(
-                                    ['gudang_id' => $gudangId, 'nama' => $categoryName],
-                                    ['is_aktif' => true]
-                                );
+                            if ($hargaSatuan > 0 && (float) ($barang->harga_satuan ?? 0) <= 0) {
+                                $updates['harga_satuan'] = $hargaSatuan;
                             }
-
-                            $satuan = $satuansByCode[$satuanKode] ?? null;
-                            if (! $satuan) {
-                                $satuan = Satuan::create([
-                                    'kode' => $satuanKode,
-                                    'nama' => ucfirst(strtolower($satuanKode)),
-                                    'is_aktif' => true,
-                                ]);
+                            if ($minimumStok !== null && (int) $barang->minimum_stok !== $minimumStok) {
+                                $updates['minimum_stok'] = $minimumStok;
                             }
-                            if ($barang && strtoupper(trim($barang->satuan?->kode ?? '')) !== $satuanKode) {
-                                throw new RuntimeException("Satuan tidak cocok: barang existing menggunakan '{$barang->satuan?->kode}'.");
+                            if ($updates !== []) {
+                                $barang->update($updates);
                             }
+                        }
 
-                            $masterBarang = $barang?->masterBarang;
-                            if ($masterBarang && ! $masterBarang->is_aktif) {
-                                throw new RuntimeException("Master barang '{$masterBarang->nama}' sedang nonaktif.");
-                            }
-
-                            if (! $masterBarang) {
-                                $masterBarang = $this->masterBarangService->findOrCreateForLocalCode(
-                                    $kode,
-                                    $nama,
-                                    (int) $kategori->id,
-                                    (int) $satuan->id,
-                                );
-                            }
-
-                            $hargaSatuan = isset($row['harga_satuan']) && is_numeric($row['harga_satuan'])
-                                ? max(0.0, (float) $row['harga_satuan'])
-                                : 0.0;
-                            $minimumStok = isset($row['minimum_stok']) && is_numeric($row['minimum_stok'])
-                                ? max(0, (int) $row['minimum_stok'])
-                                : null;
-
-                            if (! $barang) {
-                                $barang = $this->masterBarangService->registerInWarehouse(
-                                    $masterBarang,
-                                    $gudang,
-                                    $kode,
-                                    $minimumStok ?? 10,
-                                );
-                                if ($hargaSatuan > 0) {
-                                    $barang->update(['harga_satuan' => $hargaSatuan]);
-                                }
-                                $created++;
-                            } else {
-                                $updates = [];
-                                if (! $barang->master_barang_id) {
-                                    $updates['master_barang_id'] = $masterBarang->id;
-                                }
-                                if ($hargaSatuan > 0 && (float) ($barang->harga_satuan ?? 0) <= 0) {
-                                    $updates['harga_satuan'] = $hargaSatuan;
-                                }
-                                if ($minimumStok !== null && (int) $barang->minimum_stok !== $minimumStok) {
-                                    $updates['minimum_stok'] = $minimumStok;
-                                }
-                                if ($updates !== []) {
-                                    $barang->update($updates);
-                                }
-                            }
-
-                            StokAwal::create([
-                                'gudang_id' => $gudangId,
-                                'barang_id' => $barang->id,
-                                'qty' => (int) $row['qty'],
-                                'harga_awal' => $hargaSatuan,
-                                'tanggal_acuan' => $tanggalAcuan,
-                                'catatan' => trim((string) ($row['catatan'] ?? '')) ?: ($catatanUmum ?? 'Import Data Awal'),
-                                'sumber' => 'import',
-                                'diinput_oleh' => $userId,
-                            ]);
-                            $barangsByCode[$kode] = $barang;
-                            $barangsByName[mb_strtolower($nama)] = $barang;
-                            $existingStokAwalIds[(int) $barang->id] = true;
-                            $categoriesByName[$categoryName] = $kategori;
-                            $satuansByCode[$satuanKode] = $satuan;
-                            $success++;
-                        });
+                        $stokAwalBatch[] = [
+                            'gudang_id' => $gudangId,
+                            'barang_id' => $barang->id,
+                            'qty' => (int) $row['qty'],
+                            'harga_awal' => $hargaSatuan,
+                            'tanggal_acuan' => $tanggalAcuan,
+                            'catatan' => trim((string) ($row['catatan'] ?? '')) ?: ($catatanUmum ?? 'Import Data Awal'),
+                            'sumber' => 'import',
+                            'diinput_oleh' => $userId,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                        $barangsByCode[$kode] = $barang;
+                        $barangsByName[mb_strtolower($nama)] = $barang;
+                        $existingStokAwalIds[(int) $barang->id] = true;
+                        $success++;
                     } catch (RuntimeException $exception) {
                         $errors[] = [
                             'row' => (int) ($row['row'] ?? $index + 1),
@@ -716,6 +705,10 @@ final readonly class StockImportService
                             'error' => 'Terjadi kesalahan saat memproses baris data.',
                         ];
                     }
+                }
+
+                if ($stokAwalBatch !== []) {
+                    StokAwal::insert($stokAwalBatch);
                 }
             }
 

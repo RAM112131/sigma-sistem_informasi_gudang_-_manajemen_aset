@@ -996,79 +996,219 @@
                     return rows;
                 },
 
+                mapParsedTableRows(parsed) {
+                    if (!Array.isArray(parsed) || parsed.length === 0) {
+                        return null;
+                    }
+
+                    const defaultKeys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'];
+                    const headerAliases = {
+                        kode_barang: 'kode_barang',
+                        kode: 'kode_barang',
+                        nama_barang: 'nama_barang',
+                        nama: 'nama_barang',
+                        kategori: 'kategori',
+                        satuan: 'satuan',
+                        qty: 'qty',
+                        qty_fisik: 'qty',
+                        jumlah: 'qty',
+                        stok: 'qty',
+                        harga_satuan: 'harga_satuan',
+                        harga: 'harga_satuan',
+                        harga_item: 'harga_satuan',
+                        harga_per_item: 'harga_satuan',
+                        minimum_stok: 'minimum_stok',
+                        stok_minimum: 'minimum_stok',
+                        min_stok: 'minimum_stok',
+                        catatan: 'catatan',
+                        keterangan: 'catatan',
+                    };
+
+                    const normalizedFirst = parsed[0].map(cell =>
+                        String(cell ?? '').trim().toLowerCase().replace(/[\s\/-]+/g, '_')
+                    );
+                    const hasHeader = normalizedFirst.some(cell => headerAliases[cell]);
+                    const columnMap = hasHeader
+                        ? normalizedFirst.map(cell => headerAliases[cell] ?? null)
+                        : defaultKeys;
+                    const dataRows = hasHeader ? parsed.slice(1) : parsed;
+
+                    if (dataRows.length === 0) {
+                        return [];
+                    }
+
+                    return dataRows.map(cells => {
+                        const row = this.emptyPasteRow();
+                        cells.forEach((value, idx) => {
+                            const fieldKey = columnMap[idx];
+                            if (fieldKey) {
+                                row[fieldKey] = String(value ?? '').trim();
+                            }
+                        });
+                        return row;
+                    });
+                },
+
+                async parseXlsxBuffer(buffer) {
+                    if (typeof DecompressionStream !== 'function') {
+                        return null;
+                    }
+
+                    const view = new DataView(buffer);
+                    const bytes = new Uint8Array(buffer);
+                    const decoder = new TextDecoder('utf-8');
+
+                    // Locate End of Central Directory (0x06054b50)
+                    let eocdOffset = -1;
+                    const minOffset = Math.max(0, bytes.length - 65557);
+                    for (let i = bytes.length - 22; i >= minOffset; i--) {
+                        if (view.getUint32(i, true) === 0x06054b50) {
+                            eocdOffset = i;
+                            break;
+                        }
+                    }
+                    if (eocdOffset < 0) return null;
+
+                    const totalEntries = view.getUint16(eocdOffset + 10, true);
+                    const cdOffset = view.getUint32(eocdOffset + 16, true);
+                    const entries = new Map();
+                    let ptr = cdOffset;
+
+                    for (let i = 0; i < totalEntries && ptr + 46 <= bytes.length; i++) {
+                        if (view.getUint32(ptr, true) !== 0x02014b50) break;
+                        const method = view.getUint16(ptr + 10, true);
+                        const compSize = view.getUint32(ptr + 20, true);
+                        const nameLen = view.getUint16(ptr + 28, true);
+                        const extraLen = view.getUint16(ptr + 30, true);
+                        const commentLen = view.getUint16(ptr + 32, true);
+                        const localOffset = view.getUint32(ptr + 42, true);
+                        const name = decoder.decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+                        entries.set(name, { method, compSize, localOffset });
+                        ptr += 46 + nameLen + extraLen + commentLen;
+                    }
+
+                    const readZipEntryText = async (entryName) => {
+                        const meta = entries.get(entryName);
+                        if (!meta || view.getUint32(meta.localOffset, true) !== 0x04034b50) return null;
+                        const localNameLen = view.getUint16(meta.localOffset + 26, true);
+                        const localExtraLen = view.getUint16(meta.localOffset + 28, true);
+                        const dataStart = meta.localOffset + 30 + localNameLen + localExtraLen;
+                        const slice = bytes.subarray(dataStart, dataStart + meta.compSize);
+                        if (meta.method === 0) return decoder.decode(slice);
+                        if (meta.method === 8) {
+                            const stream = new Blob([slice]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+                            return await new Response(stream).text();
+                        }
+                        return null;
+                    };
+
+                    let sheetName = entries.has('xl/worksheets/sheet1.xml')
+                        ? 'xl/worksheets/sheet1.xml'
+                        : Array.from(entries.keys()).find(k => /^xl\/worksheets\/sheet\d+\.xml$/i.test(k));
+                    if (!sheetName) return null;
+
+                    const [sheetXml, sharedStringsXml] = await Promise.all([
+                        readZipEntryText(sheetName),
+                        entries.has('xl/sharedStrings.xml') ? readZipEntryText('xl/sharedStrings.xml') : Promise.resolve(null),
+                    ]);
+                    if (!sheetXml) return null;
+
+                    const xmlParser = new DOMParser();
+                    const sharedStrings = [];
+                    if (sharedStringsXml) {
+                        const ssDoc = xmlParser.parseFromString(sharedStringsXml, 'application/xml');
+                        const siNodes = ssDoc.getElementsByTagName('si');
+                        for (let i = 0; i < siNodes.length; i++) {
+                            const tNodes = siNodes[i].getElementsByTagName('t');
+                            let str = '';
+                            for (let j = 0; j < tNodes.length; j++) {
+                                str += tNodes[j].textContent || '';
+                            }
+                            sharedStrings.push(str);
+                        }
+                    }
+
+                    const colRefToIndex = (ref) => {
+                        const match = /^([A-Z]+)/i.exec(ref || '');
+                        if (!match) return -1;
+                        let col = 0;
+                        const letters = match[1].toUpperCase();
+                        for (let i = 0; i < letters.length; i++) {
+                            col = col * 26 + (letters.charCodeAt(i) - 64);
+                        }
+                        return col - 1;
+                    };
+
+                    const sheetDoc = xmlParser.parseFromString(sheetXml, 'application/xml');
+                    const rowNodes = sheetDoc.getElementsByTagName('row');
+                    const rows = [];
+
+                    for (let r = 0; r < rowNodes.length; r++) {
+                        const cellNodes = rowNodes[r].getElementsByTagName('c');
+                        const rowArr = [];
+                        let fallbackCol = 0;
+
+                        for (let c = 0; c < cellNodes.length; c++) {
+                            const cell = cellNodes[c];
+                            const ref = cell.getAttribute('r');
+                            const colIdx = ref ? colRefToIndex(ref) : fallbackCol;
+                            fallbackCol = colIdx + 1;
+                            if (colIdx < 0) continue;
+
+                            const type = cell.getAttribute('t') || 'n';
+                            let val = '';
+                            if (type === 'inlineStr') {
+                                const tNodes = cell.getElementsByTagName('t');
+                                for (let j = 0; j < tNodes.length; j++) {
+                                    val += tNodes[j].textContent || '';
+                                }
+                            } else {
+                                const vNode = cell.getElementsByTagName('v')[0];
+                                const rawVal = vNode ? (vNode.textContent || '') : '';
+                                if (type === 's') {
+                                    val = sharedStrings[Number(rawVal)] ?? '';
+                                } else if (type === 'b') {
+                                    val = rawVal === '1' ? 'TRUE' : 'FALSE';
+                                } else {
+                                    val = rawVal;
+                                }
+                            }
+
+                            rowArr[colIdx] = val.trim();
+                        }
+
+                        if (rowArr.some(v => v !== undefined && v !== '')) {
+                            rows.push(Array.from(rowArr, v => v ?? ''));
+                        }
+                    }
+
+                    return rows;
+                },
+
                 async handleFileImport(event) {
                     const file = event.target.files?.[0];
                     event.target.value = '';
                     if (!file) return;
 
-                    const t0 = performance.now();
                     this.csvImportMessage = '';
                     this.csvImportError = false;
                     const ext = String(file.name ?? '').split('.').pop()?.toLowerCase() || '';
 
                     try {
-                        let importedRows = [];
-                        let loadedCount = 0;
+                        let importedRows = null;
 
                         if (ext === 'csv' || ext === 'txt') {
                             const rawText = await file.text();
-                            const parsed = this.parseCsvRows(rawText);
-                            if (parsed.length === 0) {
-                                this.csvImportError = true;
-                                this.csvImportMessage = 'File CSV kosong atau tidak memiliki baris data.';
-                                return;
+                            importedRows = this.mapParsedTableRows(this.parseCsvRows(rawText));
+                        } else if (ext === 'xlsx') {
+                            const buffer = await file.arrayBuffer();
+                            const parsedXlsx = await this.parseXlsxBuffer(buffer);
+                            if (parsedXlsx !== null) {
+                                importedRows = this.mapParsedTableRows(parsedXlsx);
                             }
+                        }
 
-                            const defaultKeys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'];
-                            const headerAliases = {
-                                kode_barang: 'kode_barang',
-                                kode: 'kode_barang',
-                                nama_barang: 'nama_barang',
-                                nama: 'nama_barang',
-                                kategori: 'kategori',
-                                satuan: 'satuan',
-                                qty: 'qty',
-                                qty_fisik: 'qty',
-                                jumlah: 'qty',
-                                stok: 'qty',
-                                harga_satuan: 'harga_satuan',
-                                harga: 'harga_satuan',
-                                harga_item: 'harga_satuan',
-                                harga_per_item: 'harga_satuan',
-                                minimum_stok: 'minimum_stok',
-                                stok_minimum: 'minimum_stok',
-                                min_stok: 'minimum_stok',
-                                catatan: 'catatan',
-                                keterangan: 'catatan',
-                            };
-
-                            const normalizedFirst = parsed[0].map(cell =>
-                                String(cell ?? '').trim().toLowerCase().replace(/[\s\/-]+/g, '_')
-                            );
-                            const hasHeader = normalizedFirst.some(cell => headerAliases[cell]);
-                            const columnMap = hasHeader
-                                ? normalizedFirst.map(cell => headerAliases[cell] ?? null)
-                                : defaultKeys;
-                            const dataRows = hasHeader ? parsed.slice(1) : parsed;
-
-                            if (dataRows.length === 0) {
-                                this.csvImportError = true;
-                                this.csvImportMessage = 'Tidak ada baris data setelah header di file CSV.';
-                                return;
-                            }
-
-                            importedRows = dataRows.map(cells => {
-                                const row = this.emptyPasteRow();
-                                cells.forEach((value, idx) => {
-                                    const fieldKey = columnMap[idx];
-                                    if (fieldKey) {
-                                        row[fieldKey] = String(value ?? '').trim();
-                                    }
-                                });
-                                return row;
-                            });
-                            loadedCount = dataRows.length;
-                        } else {
+                        if (importedRows === null && ext !== 'csv' && ext !== 'txt') {
                             const formData = new FormData();
                             formData.append('file', file);
                             const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -1088,12 +1228,6 @@
                             }
 
                             const serverRows = Array.isArray(data.rows) ? data.rows : [];
-                            if (serverRows.length === 0) {
-                                this.csvImportError = true;
-                                this.csvImportMessage = 'Tidak ada baris data di file Excel.';
-                                return;
-                            }
-
                             importedRows = serverRows.map(item => ({
                                 ...this.emptyPasteRow(),
                                 kode_barang: String(item.kode_barang ?? '').trim(),
@@ -1105,9 +1239,15 @@
                                 minimum_stok: String(item.minimum_stok ?? '').trim(),
                                 catatan: String(item.catatan ?? '').trim(),
                             }));
-                            loadedCount = serverRows.length;
                         }
 
+                        if (!importedRows || importedRows.length === 0) {
+                            this.csvImportError = true;
+                            this.csvImportMessage = 'File kosong atau belum ada baris data setelah header.';
+                            return;
+                        }
+
+                        const loadedCount = importedRows.length;
                         while (importedRows.length < 15) {
                             importedRows.push(this.emptyPasteRow());
                         }
@@ -1118,9 +1258,8 @@
                         this.pastePage = 1;
                         this.scheduleGridValidation();
 
-                        const elapsedMs = Math.max(0.1, performance.now() - t0).toFixed(1);
                         this.csvImportError = false;
-                        this.csvImportMessage = `${loadedCount} baris berhasil dimuat ke tabel (${elapsedMs} ms).`;
+                        this.csvImportMessage = `${loadedCount} baris berhasil dimuat ke tabel.`;
                     } catch (err) {
                         this.csvImportError = true;
                         this.csvImportMessage = 'Gagal membaca file: ' + (err?.message || 'Format tidak didukung.');

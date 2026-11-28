@@ -21,6 +21,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use stdClass;
@@ -86,19 +87,34 @@ final class StokService
             );
         }
 
-        return [
-            'barangs' => $barangs,
-            'kategoriList' => KategoriBarang::query()
+        $kategoris = Cache::remember(
+            "ref:kategoris:gudang:{$gudangStore->id}",
+            300,
+            static fn (): array => KategoriBarang::query()
                 ->where(function ($q) use ($gudangStore): void {
                     $q->where('gudang_id', $gudangStore->id)->orWhereNull('gudang_id');
                 })
                 ->where('is_aktif', true)
                 ->orderBy('nama')
-                ->get(['id', 'nama']),
-            'satuanList' => Satuan::query()
+                ->get(['id', 'nama'])
+                ->map(static fn (KategoriBarang $item): array => $item->getAttributes())
+                ->all(),
+        );
+        $satuans = Cache::remember(
+            'ref:satuans:active_with_gudang',
+            300,
+            static fn (): array => Satuan::query()
                 ->where('is_aktif', true)
                 ->orderBy('nama')
-                ->get(['id', 'kode', 'nama']),
+                ->get(['id', 'kode', 'nama', 'gudang_id'])
+                ->map(static fn (Satuan $item): array => $item->getAttributes())
+                ->all(),
+        );
+
+        return [
+            'barangs' => $barangs,
+            'kategoriList' => KategoriBarang::hydrate($kategoris),
+            'satuanList' => Satuan::hydrate($satuans),
         ];
     }
 
@@ -107,39 +123,41 @@ final class StokService
      */
     public function getStockSummary(Gudang $gudang): array
     {
-        $barangs = Barang::query()
-            ->where('gudang_id', $gudang->id)
-            ->where('is_aktif', true)
-            ->get(['id', 'minimum_stok']);
+        return Cache::remember("stock_summary:{$gudang->id}", 30, function () use ($gudang): array {
+            $barangs = Barang::query()
+                ->where('gudang_id', $gudang->id)
+                ->where('is_aktif', true)
+                ->get(['id', 'minimum_stok']);
 
-        if ($barangs->isEmpty()) {
-            return ['total_barang' => 0, 'stok_menipis' => 0, 'stok_habis' => 0];
-        }
-
-        $totals = $this->totals($barangs->modelKeys(), (int) $gudang->id);
-        $menipis = 0;
-        $habis = 0;
-
-        foreach ($barangs as $barang) {
-            $saldo = max(
-                0.0,
-                (float) ($totals['awal'][$barang->id] ?? 0)
-                    + (float) ($totals['masuk'][$barang->id] ?? 0)
-                    - (float) ($totals['keluar'][$barang->id] ?? 0)
-            );
-
-            if ($saldo <= 0) {
-                $habis++;
-            } elseif ($saldo <= (float) $barang->minimum_stok) {
-                $menipis++;
+            if ($barangs->isEmpty()) {
+                return ['total_barang' => 0, 'stok_menipis' => 0, 'stok_habis' => 0];
             }
-        }
 
-        return [
-            'total_barang' => $barangs->count(),
-            'stok_menipis' => $menipis,
-            'stok_habis' => $habis,
-        ];
+            $totals = $this->totals($barangs->modelKeys(), (int) $gudang->id);
+            $menipis = 0;
+            $habis = 0;
+
+            foreach ($barangs as $barang) {
+                $saldo = max(
+                    0.0,
+                    (float) ($totals['awal'][$barang->id] ?? 0)
+                        + (float) ($totals['masuk'][$barang->id] ?? 0)
+                        - (float) ($totals['keluar'][$barang->id] ?? 0)
+                );
+
+                if ($saldo <= 0) {
+                    $habis++;
+                } elseif ($saldo <= (float) $barang->minimum_stok) {
+                    $menipis++;
+                }
+            }
+
+            return [
+                'total_barang' => $barangs->count(),
+                'stok_menipis' => $menipis,
+                'stok_habis' => $habis,
+            ];
+        });
     }
 
     /**
@@ -150,6 +168,8 @@ final class StokService
         DB::transaction(function () use ($barang, $attributes): void {
             $barang->update($attributes);
         });
+
+        self::clearWarehouseCache((int) $barang->gudang_id);
     }
 
     public function deleteUnitBarang(Barang $barang, int $gudangId): void
@@ -183,6 +203,8 @@ final class StokService
 
             $barang->delete();
         });
+
+        self::clearWarehouseCache($gudangId);
     }
 
     /**
@@ -383,7 +405,17 @@ final class StokService
         string $tanggalAcuan,
         ?string $catatanUmum = null,
     ): array {
-        return $this->importService()->importRowsInChunks($rows, $gudangId, $userId, $tanggalAcuan, $catatanUmum);
+        $result = $this->importService()->importRowsInChunks($rows, $gudangId, $userId, $tanggalAcuan, $catatanUmum);
+        self::clearWarehouseCache($gudangId);
+
+        return $result;
+    }
+
+    public static function clearWarehouseCache(int $gudangId): void
+    {
+        Cache::forget("stock_summary:{$gudangId}");
+        Cache::forget("import_catalog:{$gudangId}");
+        Cache::forget("dashboard_store_{$gudangId}");
     }
 
     private function importService(): StockImportService
@@ -752,7 +784,13 @@ final class StokService
      */
     public function getImportCatalogItems(Gudang $gudang): array
     {
-        return $this->importService()->getCatalogSnapshot((int) $gudang->getKey());
+        $gudangId = (int) $gudang->getKey();
+
+        return Cache::remember(
+            "import_catalog:{$gudangId}",
+            120,
+            fn (): array => $this->importService()->getCatalogSnapshot($gudangId),
+        );
     }
 
     /**

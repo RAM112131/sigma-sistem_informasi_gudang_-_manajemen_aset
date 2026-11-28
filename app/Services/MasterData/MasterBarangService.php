@@ -16,6 +16,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -258,11 +259,30 @@ final class MasterBarangService
             $query->where('is_aktif', (bool) $status);
         }
 
+        $kategoris = Cache::remember('ref:kategoris:active', 300, static fn (): array => KategoriBarang::query()
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'nama'])
+            ->map(static fn (KategoriBarang $item): array => $item->getAttributes())
+            ->all());
+        $satuans = Cache::remember('ref:satuans:active', 300, static fn (): array => Satuan::query()
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'kode', 'nama'])
+            ->map(static fn (Satuan $item): array => $item->getAttributes())
+            ->all());
+        $gudangs = Cache::remember('ref:gudangs:active', 300, static fn (): array => Gudang::query()
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'nama'])
+            ->map(static fn (Gudang $item): array => $item->getAttributes())
+            ->all());
+
         return [
             'masterBarangs' => $query->orderBy('nama')->paginate($perPage)->withQueryString(),
-            'kategoriList' => KategoriBarang::query()->where('is_aktif', true)->orderBy('nama')->get(['id', 'nama']),
-            'satuanList' => Satuan::query()->where('is_aktif', true)->orderBy('nama')->get(['id', 'kode', 'nama']),
-            'gudangList' => Gudang::query()->where('is_aktif', true)->orderBy('nama')->get(['id', 'nama']),
+            'kategoriList' => KategoriBarang::hydrate($kategoris),
+            'satuanList' => Satuan::hydrate($satuans),
+            'gudangList' => Gudang::hydrate($gudangs),
         ];
     }
 
@@ -271,22 +291,32 @@ final class MasterBarangService
      */
     public function getSummaryData(): array
     {
-        $summary = MasterBarang::query()
-            ->toBase()
-            ->selectRaw('COUNT(*) AS total_master_barang')
-            ->selectRaw(
-                'COUNT(CASE WHEN NOT EXISTS (
-                    SELECT 1 FROM barangs
-                    WHERE barangs.master_barang_id = master_barangs.id
-                      AND barangs.deleted_at IS NULL
-                ) THEN 1 END) AS unregistered_master_barang',
-            )
-            ->first();
+        return Cache::remember('master_barang:summary', 60, static function (): array {
+            $summary = MasterBarang::query()
+                ->toBase()
+                ->selectRaw('COUNT(*) AS total_master_barang')
+                ->selectRaw(
+                    'COUNT(CASE WHEN NOT EXISTS (
+                        SELECT 1 FROM barangs
+                        WHERE barangs.master_barang_id = master_barangs.id
+                          AND barangs.deleted_at IS NULL
+                    ) THEN 1 END) AS unregistered_master_barang',
+                )
+                ->first();
 
-        return [
-            'totalMasterBarang' => (int) $summary->total_master_barang,
-            'unregisteredMasterBarang' => (int) $summary->unregistered_master_barang,
-        ];
+            return [
+                'totalMasterBarang' => (int) $summary->total_master_barang,
+                'unregisteredMasterBarang' => (int) $summary->unregistered_master_barang,
+            ];
+        });
+    }
+
+    public static function clearReferenceCache(): void
+    {
+        Cache::forget('ref:kategoris:active');
+        Cache::forget('ref:satuans:active');
+        Cache::forget('ref:gudangs:active');
+        Cache::forget('master_barang:summary');
     }
 
     /**
@@ -298,7 +328,7 @@ final class MasterBarangService
             ?? $attributes['foto_path']
             ?? null;
 
-        return DB::transaction(fn (): MasterBarang => MasterBarang::create([
+        $created = DB::transaction(fn (): MasterBarang => MasterBarang::create([
             'kode' => strtoupper(trim((string) $attributes['kode'])),
             'nama' => trim((string) $attributes['nama']),
             'kategori_id' => $attributes['kategori_id'],
@@ -308,6 +338,10 @@ final class MasterBarangService
             'foto_path' => $attributes['foto_path'] ?? null,
             'is_aktif' => true,
         ]));
+
+        self::clearReferenceCache();
+
+        return $created;
     }
 
     /**
@@ -315,7 +349,7 @@ final class MasterBarangService
      */
     public function update(MasterBarang $masterBarang, array $attributes): MasterBarang
     {
-        return DB::transaction(function () use ($masterBarang, $attributes): MasterBarang {
+        $updated = DB::transaction(function () use ($masterBarang, $attributes): MasterBarang {
             $masterBarang->update([
                 'kode' => strtoupper(trim((string) $attributes['kode'])),
                 'nama' => trim((string) $attributes['nama']),
@@ -361,6 +395,10 @@ final class MasterBarangService
 
             return $masterBarang->fresh();
         });
+
+        self::clearReferenceCache();
+
+        return $updated;
     }
 
     public function registerInWarehouse(
