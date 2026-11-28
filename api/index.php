@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 // Set up writable directories in /tmp (Vercel filesystem is read-only except /tmp)
 $storagePath = '/tmp/storage';
-$directories = [
-    $storagePath.'/app/private',
-    $storagePath.'/app/public',
-    $storagePath.'/framework/cache/data',
-    $storagePath.'/framework/sessions',
-    $storagePath.'/framework/views',
-    $storagePath.'/logs',
-    '/tmp/bootstrap/cache',
-];
+if (! is_dir('/tmp/bootstrap/cache') || ! is_dir($storagePath.'/logs')) {
+    $directories = [
+        $storagePath.'/app/private',
+        $storagePath.'/app/public',
+        $storagePath.'/framework/cache/data',
+        $storagePath.'/framework/sessions',
+        $storagePath.'/framework/views',
+        $storagePath.'/logs',
+        '/tmp/bootstrap/cache',
+    ];
 
-foreach ($directories as $path) {
-    if (! is_dir($path)) {
-        mkdir($path, 0755, true);
+    foreach ($directories as $path) {
+        if (! is_dir($path)) {
+            mkdir($path, 0755, true);
+        }
     }
 }
 

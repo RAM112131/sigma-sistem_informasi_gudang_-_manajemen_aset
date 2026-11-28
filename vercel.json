@@ -1,5 +1,6 @@
 {
     "$schema": "https://openapi.vercel.sh/vercel.json",
+    "regions": ["hnd1"],
     "buildCommand": "npm run build && node vercel-build.mjs",
     "outputDirectory": "vercel-static",
     "functions": {
