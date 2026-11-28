@@ -73,13 +73,13 @@ final class RekonsiliasiPenerimaanService
                 ->get(['id', 'name'])
                 ->all();
 
-        $selectedReceiptId = $filters['penerimaan_id'] ?? $receipts->first()?->id;
-        $selectedReceiptSource = isset($filters['penerimaan_id'])
+        $selectedReceiptId = $filters['penerimaan_id'] ?? null;
+        $selectedReceiptSource = $selectedReceiptId !== null && $selectedReceiptId !== ''
             ? ($normalizedFilters['sumber_penerimaan'] ?? 'supplier')
-            : $receipts->first()?->sumber_penerimaan;
+            : null;
         $selectedReceipt = null;
 
-        if ($selectedReceiptId !== null && $selectedReceiptSource !== null) {
+        if ($selectedReceiptId !== null && $selectedReceiptId !== '' && $selectedReceiptSource !== null) {
             $selectedReceipt = $this->findSelectedReceipt(
                 $activeGudang,
                 (int) $selectedReceiptId,

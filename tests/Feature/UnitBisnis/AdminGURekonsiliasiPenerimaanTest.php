@@ -533,12 +533,25 @@ final class AdminGURekonsiliasiPenerimaanTest extends TestCase
             ->assertSee('OUT-STR-28112026831-0002')
             ->assertDontSee('OUT-STR-28112026831-0002-01')
             ->assertDontSee('OUT-STR-28112026831-0002-02')
-            ->assertSee('SJ-ITEM-01')
-            ->assertSee('SJ-ITEM-02');
+            ->assertSee('Pilih penerimaan untuk mulai rekonsiliasi')
+            ->assertDontSee('Aktif Dibuka')
+            ->assertDontSee('SJ-ITEM-01');
 
         self::assertCount(1, $response->viewData('receipts')->getCollection());
         self::assertSame(2, $response->viewData('receipts')->first()->details_count);
         self::assertSame(1, $response->viewData('metrics')['pending_count']);
+
+        $this->actingAs($admin)
+            ->get(route('unit-bisnis.admin-gu.rekonsiliasi-penerimaan.index', [
+                'gudang_id' => $gudang->getKey(),
+                'status' => 'menunggu_verifikasi',
+                'penerimaan_id' => $receipt1->getKey(),
+                'sumber_penerimaan' => 'permintaan',
+            ]))
+            ->assertOk()
+            ->assertSeeText('Aktif Dibuka')
+            ->assertSee('SJ-ITEM-01')
+            ->assertSee('SJ-ITEM-02');
 
         $this->actingAs($admin)
             ->post(route('unit-bisnis.admin-gu.rekonsiliasi-penerimaan.verify', $receipt1->getKey()), [
