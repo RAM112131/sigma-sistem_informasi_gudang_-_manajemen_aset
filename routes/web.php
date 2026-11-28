@@ -341,6 +341,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/stok/{barang}', [UnitBisnisStokController::class, 'destroy'])->name('stok.destroy');
         Route::get('/stok/{barang}/kartu', [UnitBisnisStokController::class, 'kartuStok'])->name('stok.kartu');
         Route::get('/stok/import-template', [UnitBisnisStokController::class, 'downloadImportTemplate'])->name('stok.import-template');
+        Route::post('/stok/import-excel', [UnitBisnisStokController::class, 'parseImportExcel'])->name('stok.import-excel');
         Route::get('/stok/import-search', [UnitBisnisStokController::class, 'searchImportCatalog'])->name('stok.import-search');
         Route::post('/stok/import-analyze', [UnitBisnisStokController::class, 'analyzeImport'])->name('stok.import-analyze');
         Route::post('/stok/import-process', [UnitBisnisStokController::class, 'processImport'])->name('stok.import-process');

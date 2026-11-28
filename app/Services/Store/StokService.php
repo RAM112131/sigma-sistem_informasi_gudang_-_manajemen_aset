@@ -774,6 +774,14 @@ final class StokService
     }
 
     /**
+     * @return array{rows: list<array<string, string>>}
+     */
+    public function parseImportExcelRows(UploadedFile $file): array
+    {
+        return $this->importService()->parseExcelRows($file);
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $rows
      * @return array{
      *     rows: array<int, array<string, mixed>>,

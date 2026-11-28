@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use RuntimeException;
 use Throwable;
 
@@ -809,5 +810,94 @@ final readonly class StockImportService
         }
 
         return null;
+    }
+
+    /**
+     * Parse an uploaded Excel/CSV file into grid-ready row arrays.
+     *
+     * @return array{rows: list<array<string, string>>}
+     */
+    public function parseExcelRows(UploadedFile $file): array
+    {
+        $path = $file->getPathname();
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($path);
+        $rawRows = $spreadsheet->getActiveSheet()->toArray(null, true, false, false);
+        $spreadsheet->disconnectWorksheets();
+
+        $nonEmptyRows = array_values(array_filter(
+            $rawRows,
+            static fn (array $row): bool => collect($row)->contains(
+                static fn (mixed $cell): bool => trim((string) ($cell ?? '')) !== ''
+            )
+        ));
+
+        if ($nonEmptyRows === []) {
+            return ['rows' => []];
+        }
+
+        $defaultKeys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'];
+        $headerAliases = [
+            'kode_barang' => 'kode_barang',
+            'kode' => 'kode_barang',
+            'nama_barang' => 'nama_barang',
+            'nama' => 'nama_barang',
+            'kategori' => 'kategori',
+            'satuan' => 'satuan',
+            'qty' => 'qty',
+            'qty_fisik' => 'qty',
+            'jumlah' => 'qty',
+            'stok' => 'qty',
+            'harga_satuan' => 'harga_satuan',
+            'harga' => 'harga_satuan',
+            'harga_item' => 'harga_satuan',
+            'harga_per_item' => 'harga_satuan',
+            'minimum_stok' => 'minimum_stok',
+            'stok_minimum' => 'minimum_stok',
+            'min_stok' => 'minimum_stok',
+            'catatan' => 'catatan',
+            'keterangan' => 'catatan',
+        ];
+
+        $normalizedFirst = array_map(
+            static fn (mixed $cell): string => preg_replace('/[\s\/-]+/', '_', mb_strtolower(trim((string) ($cell ?? '')))) ?? '',
+            $nonEmptyRows[0]
+        );
+        $hasHeader = false;
+        foreach ($normalizedFirst as $headerCell) {
+            if (isset($headerAliases[$headerCell])) {
+                $hasHeader = true;
+                break;
+            }
+        }
+
+        $columnMap = $hasHeader
+            ? array_map(static fn (string $cell): ?string => $headerAliases[$cell] ?? null, $normalizedFirst)
+            : $defaultKeys;
+        $dataRows = $hasHeader ? array_slice($nonEmptyRows, 1) : $nonEmptyRows;
+
+        $mapped = [];
+        foreach ($dataRows as $cells) {
+            $item = [
+                'kode_barang' => '',
+                'nama_barang' => '',
+                'kategori' => '',
+                'satuan' => '',
+                'qty' => '',
+                'harga_satuan' => '',
+                'minimum_stok' => '',
+                'catatan' => '',
+            ];
+            foreach ($cells as $idx => $value) {
+                $fieldKey = $columnMap[$idx] ?? null;
+                if ($fieldKey !== null) {
+                    $item[$fieldKey] = trim((string) ($value ?? ''));
+                }
+            }
+            $mapped[] = $item;
+        }
+
+        return ['rows' => $mapped];
     }
 }

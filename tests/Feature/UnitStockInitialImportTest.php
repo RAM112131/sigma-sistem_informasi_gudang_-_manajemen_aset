@@ -14,6 +14,7 @@ use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -44,10 +45,9 @@ final class UnitStockInitialImportTest extends TestCase
             ->assertSee('Barang belum ada. Tambahkan terlebih dahulu di Master Barang.')
             ->assertSee(route('master.barang.index'), false)
             ->assertSee('Import Barang')
-            ->assertSee('handleCsvFileImport($event)', false)
-            ->assertSee('Unduh Template CSV')
+            ->assertSee('handleFileImport($event)', false)
+            ->assertSee('Unduh Template Excel')
             ->assertDontSee('Unggah file Excel atau CSV')
-            ->assertDontSee('accept=".xlsx,.xls,.csv"', false)
             ->assertDontSee('xlsx.full.min.js');
     }
 
@@ -725,6 +725,29 @@ final class UnitStockInitialImportTest extends TestCase
             'minimum_stok' => 12,
             'harga_satuan' => 15000,
         ]);
+    }
+
+    public function test_recording_gu_can_download_excel_template_without_sample_rows(): void
+    {
+        [$recording, $gudang] = $this->makeRecordingContext();
+
+        $response = $this->actingAs($recording)
+            ->withSession(['active_gudang_id' => $gudang->id])
+            ->get(route('unit-bisnis.stok.import-template'));
+
+        $response->assertOk()
+            ->assertHeader('content-disposition', 'attachment; filename=template_import_stok_awal_unit.xlsx');
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, false, false);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame(
+            ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'],
+            $rows[0]
+        );
+        $this->assertTrue($sheet->getStyle('A1:H1')->getFont()->getBold());
     }
 
     /**

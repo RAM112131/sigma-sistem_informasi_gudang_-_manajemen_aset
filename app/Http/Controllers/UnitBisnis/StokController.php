@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\UnitBisnis;
 
+use App\Exports\UnitBisnis\UnitStockImportTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UnitBisnis\FilterUnitStockRequest;
 use App\Http\Requests\UnitBisnis\RecordingGudangUmum\AnalyzeUnitStockImportRequest;
+use App\Http\Requests\UnitBisnis\RecordingGudangUmum\ParseUnitStockExcelRequest;
 use App\Http\Requests\UnitBisnis\RecordingGudangUmum\ProcessUnitStockImportRequest;
 use App\Http\Requests\UnitBisnis\RecordingGudangUmum\SearchUnitStockImportRequest;
 use App\Http\Requests\UnitBisnis\UpdateUnitStockRequest;
@@ -21,8 +23,11 @@ use App\Services\UnitBisnis\UnitGudangService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class StokController extends Controller
@@ -192,24 +197,22 @@ final class StokController extends Controller
     }
 
     /**
-     * Download CSV template for Import Data Awal Gudang Unit.
+     * Download Excel template for Import Data Awal Gudang Unit.
      */
-    public function downloadImportTemplate(): StreamedResponse
+    public function downloadImportTemplate(): BinaryFileResponse
     {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="template_import_stok_awal_unit.csv"',
-        ];
+        return Excel::download(new UnitStockImportTemplateExport, 'template_import_stok_awal_unit.xlsx');
+    }
 
-        return response()->stream(function () {
-            $handle = fopen('php://output', 'w');
-            fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan']);
-            fputcsv($handle, ['SKH-001', 'Ayam Broiler Karkas Frozen', 'Karkas Ayam & Parting Sukahati', 'Ekor', '120', '35000', '10', 'Stok fisik opname unit awal']);
-            fputcsv($handle, ['SKH-002', 'Daging Fillet Dada Ayam', 'Karkas Ayam & Parting Sukahati', 'Kilogram', '45', '48000', '5', 'Stok fisik opname unit awal']);
-            fputcsv($handle, ['KMS-001', 'Plastik Vacuum Roll 20x30', 'Kemasan', 'Roll', '30', '25000', '5', 'Stok fisik opname unit awal']);
-            fclose($handle);
-        }, 200, $headers);
+    /**
+     * Parse uploaded Excel/CSV file into grid rows for Import Data Awal.
+     */
+    public function parseImportExcel(ParseUnitStockExcelRequest $request): JsonResponse
+    {
+        $file = $request->file('file');
+        abort_unless($file instanceof UploadedFile, 422, 'Pilih file Excel atau CSV yang valid.');
+
+        return response()->json($this->stokService->parseImportExcelRows($file));
     }
 
     /**

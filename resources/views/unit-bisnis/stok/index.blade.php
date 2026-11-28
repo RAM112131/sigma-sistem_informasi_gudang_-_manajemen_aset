@@ -276,8 +276,8 @@
                                 <p style="font-size:.82rem;color:var(--text-muted);margin:2px 0 0;">Import data barang sesuai template atau Isi manual di kolom yang telah disediakan</p>
                             </div>
                             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                                <input type="file" x-ref="importCsvInput" accept=".csv,text/csv"
-                                    style="display:none;" @change="handleCsvFileImport($event)">
+                                <input type="file" x-ref="importCsvInput" accept=".xlsx,.xls,.csv"
+                                    style="display:none;" @change="handleFileImport($event)">
                                 <button type="button" class="btn btn-primary btn-sm"
                                     @click="$refs.importCsvInput.click()">
                                     <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none"
@@ -296,7 +296,7 @@
                                         <polyline points="7 10 12 15 17 10" />
                                         <line x1="12" y1="15" x2="12" y2="3" />
                                     </svg>
-                                    Unduh Template CSV
+                                    Unduh Template Excel
                                 </a>
                             </div>
                         </div>
@@ -996,7 +996,7 @@
                     return rows;
                 },
 
-                async handleCsvFileImport(event) {
+                async handleFileImport(event) {
                     const file = event.target.files?.[0];
                     event.target.value = '';
                     if (!file) return;
@@ -1004,64 +1004,109 @@
                     const t0 = performance.now();
                     this.csvImportMessage = '';
                     this.csvImportError = false;
+                    const ext = String(file.name ?? '').split('.').pop()?.toLowerCase() || '';
 
                     try {
-                        const rawText = await file.text();
-                        const parsed = this.parseCsvRows(rawText);
-                        if (parsed.length === 0) {
-                            this.csvImportError = true;
-                            this.csvImportMessage = 'File CSV kosong atau tidak memiliki baris data.';
-                            return;
-                        }
+                        let importedRows = [];
+                        let loadedCount = 0;
 
-                        const defaultKeys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'];
-                        const headerAliases = {
-                            kode_barang: 'kode_barang',
-                            kode: 'kode_barang',
-                            nama_barang: 'nama_barang',
-                            nama: 'nama_barang',
-                            kategori: 'kategori',
-                            satuan: 'satuan',
-                            qty: 'qty',
-                            qty_fisik: 'qty',
-                            jumlah: 'qty',
-                            stok: 'qty',
-                            harga_satuan: 'harga_satuan',
-                            harga: 'harga_satuan',
-                            harga_item: 'harga_satuan',
-                            harga_per_item: 'harga_satuan',
-                            minimum_stok: 'minimum_stok',
-                            stok_minimum: 'minimum_stok',
-                            min_stok: 'minimum_stok',
-                            catatan: 'catatan',
-                            keterangan: 'catatan',
-                        };
+                        if (ext === 'csv' || ext === 'txt') {
+                            const rawText = await file.text();
+                            const parsed = this.parseCsvRows(rawText);
+                            if (parsed.length === 0) {
+                                this.csvImportError = true;
+                                this.csvImportMessage = 'File CSV kosong atau tidak memiliki baris data.';
+                                return;
+                            }
 
-                        const normalizedFirst = parsed[0].map(cell =>
-                            String(cell ?? '').trim().toLowerCase().replace(/[\s\/-]+/g, '_')
-                        );
-                        const hasHeader = normalizedFirst.some(cell => headerAliases[cell]);
-                        const columnMap = hasHeader
-                            ? normalizedFirst.map(cell => headerAliases[cell] ?? null)
-                            : defaultKeys;
-                        const dataRows = hasHeader ? parsed.slice(1) : parsed;
+                            const defaultKeys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'];
+                            const headerAliases = {
+                                kode_barang: 'kode_barang',
+                                kode: 'kode_barang',
+                                nama_barang: 'nama_barang',
+                                nama: 'nama_barang',
+                                kategori: 'kategori',
+                                satuan: 'satuan',
+                                qty: 'qty',
+                                qty_fisik: 'qty',
+                                jumlah: 'qty',
+                                stok: 'qty',
+                                harga_satuan: 'harga_satuan',
+                                harga: 'harga_satuan',
+                                harga_item: 'harga_satuan',
+                                harga_per_item: 'harga_satuan',
+                                minimum_stok: 'minimum_stok',
+                                stok_minimum: 'minimum_stok',
+                                min_stok: 'minimum_stok',
+                                catatan: 'catatan',
+                                keterangan: 'catatan',
+                            };
 
-                        if (dataRows.length === 0) {
-                            this.csvImportError = true;
-                            this.csvImportMessage = 'Tidak ada baris data setelah header di file CSV.';
-                            return;
-                        }
+                            const normalizedFirst = parsed[0].map(cell =>
+                                String(cell ?? '').trim().toLowerCase().replace(/[\s\/-]+/g, '_')
+                            );
+                            const hasHeader = normalizedFirst.some(cell => headerAliases[cell]);
+                            const columnMap = hasHeader
+                                ? normalizedFirst.map(cell => headerAliases[cell] ?? null)
+                                : defaultKeys;
+                            const dataRows = hasHeader ? parsed.slice(1) : parsed;
 
-                        const importedRows = dataRows.map(cells => {
-                            const row = this.emptyPasteRow();
-                            cells.forEach((value, idx) => {
-                                const fieldKey = columnMap[idx];
-                                if (fieldKey) {
-                                    row[fieldKey] = String(value ?? '').trim();
-                                }
+                            if (dataRows.length === 0) {
+                                this.csvImportError = true;
+                                this.csvImportMessage = 'Tidak ada baris data setelah header di file CSV.';
+                                return;
+                            }
+
+                            importedRows = dataRows.map(cells => {
+                                const row = this.emptyPasteRow();
+                                cells.forEach((value, idx) => {
+                                    const fieldKey = columnMap[idx];
+                                    if (fieldKey) {
+                                        row[fieldKey] = String(value ?? '').trim();
+                                    }
+                                });
+                                return row;
                             });
-                            return row;
-                        });
+                            loadedCount = dataRows.length;
+                        } else {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                            const response = await fetch('{{ route('unit-bisnis.stok.import-excel') }}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': token,
+                                    'Accept': 'application/json',
+                                },
+                                body: formData,
+                            });
+                            const data = await response.json();
+                            if (!response.ok) {
+                                this.csvImportError = true;
+                                this.csvImportMessage = data.message || 'Gagal membaca file Excel.';
+                                return;
+                            }
+
+                            const serverRows = Array.isArray(data.rows) ? data.rows : [];
+                            if (serverRows.length === 0) {
+                                this.csvImportError = true;
+                                this.csvImportMessage = 'Tidak ada baris data di file Excel.';
+                                return;
+                            }
+
+                            importedRows = serverRows.map(item => ({
+                                ...this.emptyPasteRow(),
+                                kode_barang: String(item.kode_barang ?? '').trim(),
+                                nama_barang: String(item.nama_barang ?? '').trim(),
+                                kategori: String(item.kategori ?? '').trim(),
+                                satuan: String(item.satuan ?? '').trim(),
+                                qty: String(item.qty ?? '').trim(),
+                                harga_satuan: String(item.harga_satuan ?? '').trim(),
+                                minimum_stok: String(item.minimum_stok ?? '').trim(),
+                                catatan: String(item.catatan ?? '').trim(),
+                            }));
+                            loadedCount = serverRows.length;
+                        }
 
                         while (importedRows.length < 15) {
                             importedRows.push(this.emptyPasteRow());
@@ -1075,10 +1120,10 @@
 
                         const elapsedMs = Math.max(0.1, performance.now() - t0).toFixed(1);
                         this.csvImportError = false;
-                        this.csvImportMessage = `${dataRows.length} baris berhasil dimuat ke tabel dalam ${elapsedMs} ms.`;
+                        this.csvImportMessage = `${loadedCount} baris berhasil dimuat ke tabel (${elapsedMs} ms).`;
                     } catch (err) {
                         this.csvImportError = true;
-                        this.csvImportMessage = 'Gagal membaca file CSV: ' + (err?.message || 'Format tidak didukung.');
+                        this.csvImportMessage = 'Gagal membaca file: ' + (err?.message || 'Format tidak didukung.');
                     }
                 },
 
