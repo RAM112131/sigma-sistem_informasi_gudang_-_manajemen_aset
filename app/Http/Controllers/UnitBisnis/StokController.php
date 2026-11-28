@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UnitBisnis\FilterUnitStockRequest;
 use App\Http\Requests\UnitBisnis\RecordingGudangUmum\AnalyzeUnitStockImportRequest;
 use App\Http\Requests\UnitBisnis\RecordingGudangUmum\ProcessUnitStockImportRequest;
+use App\Http\Requests\UnitBisnis\RecordingGudangUmum\SearchUnitStockImportRequest;
 use App\Http\Requests\UnitBisnis\UpdateUnitStockRequest;
 use App\Models\Barang;
 use App\Models\Gudang;
@@ -207,6 +208,25 @@ final class StokController extends Controller
             fputcsv($handle, ['KMS-001', 'Plastik Vacuum Roll 20x30', 'Kemasan', 'Roll', '30', 'Stok fisik opname unit awal']);
             fclose($handle);
         }, 200, $headers);
+    }
+
+    /**
+     * Search warehouse & master catalog items via vector search for import grid autocomplete.
+     */
+    public function searchImportCatalog(SearchUnitStockImportRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $activeGudang = $this->resolveUnitGudang($request);
+
+        $items = $this->stokService->searchImportCatalog(
+            $activeGudang,
+            $validated['q'],
+            $validated['field'] ?? null,
+        );
+
+        return response()->json([
+            'items' => $items,
+        ]);
     }
 
     /**

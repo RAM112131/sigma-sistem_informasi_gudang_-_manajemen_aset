@@ -602,6 +602,61 @@ final class UnitStockInitialImportTest extends TestCase
         $this->assertDatabaseHas('barangs', ['id' => $otherBarang->id, 'is_aktif' => true]);
     }
 
+    public function test_recording_gu_can_search_import_catalog_by_code_or_name(): void
+    {
+        [$recording, $gudang] = $this->makeRecordingContext();
+        $kategori = KategoriBarang::create(['gudang_id' => $gudang->id, 'nama' => 'Kemasan', 'is_aktif' => true]);
+        $satuan = Satuan::create(['kode' => 'PCS', 'nama' => 'Pieces', 'is_aktif' => true]);
+
+        $barang = Barang::create([
+            'gudang_id' => $gudang->id,
+            'kode' => 'KMS-001',
+            'nama' => 'Plastik Vacuum Roll',
+            'kategori_id' => $kategori->id,
+            'satuan_id' => $satuan->id,
+            'is_aktif' => true,
+        ]);
+
+        MasterBarang::create([
+            'kode' => 'SKH-001',
+            'nama' => 'Ayam Broiler Karkas',
+            'kategori_id' => $kategori->id,
+            'satuan_id' => $satuan->id,
+            'is_aktif' => true,
+        ]);
+
+        $this->actingAs($recording)
+            ->withSession(['active_gudang_id' => $gudang->id])
+            ->getJson(route('unit-bisnis.stok.import-search', [
+                'q' => 'KMS-001',
+                'field' => 'kode_barang',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'items')
+            ->assertJsonPath('items.0.kode_barang', 'KMS-001')
+            ->assertJsonPath('items.0.nama_barang', 'Plastik Vacuum Roll')
+            ->assertJsonPath('items.0.kategori', 'Kemasan')
+            ->assertJsonPath('items.0.satuan', 'PCS')
+            ->assertJsonPath('items.0.source', 'barang')
+            ->assertJsonPath('items.0.stok_awal_exists', false);
+
+        $this->actingAs($recording)
+            ->withSession(['active_gudang_id' => $gudang->id])
+            ->getJson(route('unit-bisnis.stok.import-search', [
+                'q' => 'Ayam Broiler',
+                'field' => 'nama_barang',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'items')
+            ->assertJsonPath('items.0.kode_barang', 'SKH-001')
+            ->assertJsonPath('items.0.nama_barang', 'Ayam Broiler Karkas')
+            ->assertJsonPath('items.0.kategori', 'Kemasan')
+            ->assertJsonPath('items.0.satuan', 'PCS')
+            ->assertJsonPath('items.0.source', 'master_barang');
+
+        $this->assertDatabaseHas('barangs', ['id' => $barang->id]);
+    }
+
     /**
      * @return array{User, Gudang}
      */

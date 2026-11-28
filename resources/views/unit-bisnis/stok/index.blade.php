@@ -345,10 +345,18 @@
                                         <tr>
                                             <td x-text="pasteRowIndex(visibleRowIndex) + 1"></td>
                                             <td><input type="text" x-model="row.kode_barang" placeholder="SKH-001"
-                                                    @input="scheduleGridValidation()"
+                                                    autocomplete="off"
+                                                    @input="scheduleGridValidation(); scheduleCatalogSearch($event.target, pasteRowIndex(visibleRowIndex), 'kode_barang', row.kode_barang)"
+                                                    @focus="handleCatalogFocus($event.target, pasteRowIndex(visibleRowIndex), 'kode_barang', row.kode_barang)"
+                                                    @keydown="handleCatalogKeydown($event, pasteRowIndex(visibleRowIndex))"
+                                                    @blur="handleCatalogBlur(pasteRowIndex(visibleRowIndex), 'kode_barang')"
                                                     @paste="handleGridPaste($event, visibleRowIndex, 0)"></td>
                                             <td><input type="text" x-model="row.nama_barang" placeholder="Nama barang"
-                                                    @input="scheduleGridValidation()"
+                                                    autocomplete="off"
+                                                    @input="scheduleGridValidation(); scheduleCatalogSearch($event.target, pasteRowIndex(visibleRowIndex), 'nama_barang', row.nama_barang)"
+                                                    @focus="handleCatalogFocus($event.target, pasteRowIndex(visibleRowIndex), 'nama_barang', row.nama_barang)"
+                                                    @keydown="handleCatalogKeydown($event, pasteRowIndex(visibleRowIndex))"
+                                                    @blur="handleCatalogBlur(pasteRowIndex(visibleRowIndex), 'nama_barang')"
                                                     @paste="handleGridPaste($event, visibleRowIndex, 1)"></td>
                                             <td><input type="text" list="unit-paste-categories" x-model="row.kategori"
                                                     placeholder="Kategori" @input="scheduleGridValidation()"
@@ -382,6 +390,38 @@
                                     </template>
                                 </tbody>
                             </table>
+                        </div>
+
+                        {{-- Floating Vector Search Autocomplete Dropdown --}}
+                        <div x-show="searchActiveRow !== null && (searchLoading || searchSuggestions.length > 0)"
+                            x-cloak class="stock-paste-autocomplete" :style="searchDropdownStyle" role="listbox"
+                            aria-label="Saran barang dari vector search">
+                            <div x-show="searchLoading" class="stock-paste-autocomplete-status">
+                                Mencari barang...
+                            </div>
+                            <template x-for="(item, sIdx) in searchSuggestions" :key="item.kode_barang + '-' + sIdx">
+                                <button type="button" class="stock-paste-autocomplete-item"
+                                    :class="{ 'is-active': sIdx === searchHighlightedIndex }" role="option"
+                                    :aria-selected="sIdx === searchHighlightedIndex"
+                                    @mousedown.prevent="selectCatalogSuggestion(item, searchActiveRow)">
+                                    <span class="stock-paste-autocomplete-top">
+                                        <span>
+                                            <span class="stock-paste-autocomplete-code"
+                                                x-text="item.kode_barang"></span>
+                                            <span> &mdash; </span>
+                                            <span x-text="item.nama_barang"></span>
+                                        </span>
+                                        <span class="badge"
+                                            :class="item.stok_awal_exists ? 'badge-warning' : 'badge-success'"
+                                            x-text="item.stok_awal_exists ? 'Sudah ada stok awal' : (item.source === 'barang' ? 'Gudang' : 'Master')"></span>
+                                    </span>
+                                    <span class="stock-paste-autocomplete-meta">
+                                        <span x-text="item.kategori || 'Tanpa Kategori'"></span>
+                                        <span>&middot;</span>
+                                        <span x-text="item.satuan_nama || item.satuan || '-'"></span>
+                                    </span>
+                                </button>
+                            </template>
                         </div>
 
                         <div class="stock-paste-pagination">
@@ -639,6 +679,15 @@
                 catatanUmum: '',
                 importing: false,
                 importResult: {},
+                searchSuggestions: [],
+                searchLoading: false,
+                searchActiveRow: null,
+                searchActiveField: null,
+                searchHighlightedIndex: -1,
+                searchDropdownStyle: '',
+                searchTimer: null,
+                searchController: null,
+                searchBlurTimer: null,
 
                 init() {
                     this.resetPasteGrid();
@@ -769,6 +818,147 @@
                     this.validationTimer = setTimeout(() => {
                         this.analyzeGrid();
                     }, 500);
+                },
+
+                positionCatalogDropdown(inputEl) {
+                    if (!inputEl) return;
+                    const rect = inputEl.getBoundingClientRect();
+                    const width = Math.max(rect.width, 320);
+                    const left = Math.min(rect.left, window.innerWidth - width - 16);
+                    this.searchDropdownStyle =
+                        `top:${Math.round(rect.bottom + 4)}px;left:${Math.max(8, Math.round(left))}px;width:${Math.round(width)}px;`;
+                },
+
+                handleCatalogFocus(inputEl, rowIndex, field, query) {
+                    clearTimeout(this.searchBlurTimer);
+                    const trimmed = String(query ?? '').trim();
+                    if (trimmed.length >= 2) {
+                        this.scheduleCatalogSearch(inputEl, rowIndex, field, trimmed);
+                    }
+                },
+
+                scheduleCatalogSearch(inputEl, rowIndex, field, query) {
+                    clearTimeout(this.searchTimer);
+                    clearTimeout(this.searchBlurTimer);
+                    const trimmed = String(query ?? '').trim();
+
+                    if (trimmed.length < 2) {
+                        this.closeCatalogSearch();
+                        return;
+                    }
+
+                    this.searchActiveRow = rowIndex;
+                    this.searchActiveField = field;
+                    this.positionCatalogDropdown(inputEl);
+
+                    this.searchTimer = setTimeout(() => {
+                        this.fetchCatalogSuggestions(trimmed, field, rowIndex);
+                    }, 250);
+                },
+
+                async fetchCatalogSuggestions(query, field, rowIndex) {
+                    this.searchController?.abort();
+                    const controller = new AbortController();
+                    this.searchController = controller;
+                    this.searchLoading = true;
+
+                    try {
+                        const url = new URL('{{ route('unit-bisnis.stok.import-search') }}', window.location.origin);
+                        url.searchParams.set('q', query);
+                        url.searchParams.set('field', field);
+                        @if ($activeGudang?->id)
+                            url.searchParams.set('gudang_id', '{{ $activeGudang->id }}');
+                        @endif
+
+                        const response = await fetch(url, {
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            signal: controller.signal,
+                        });
+                        if (!response.ok) throw new Error('Gagal mencari barang.');
+
+                        const data = await response.json();
+                        if (this.searchActiveRow !== rowIndex) return;
+                        this.searchSuggestions = Array.isArray(data.items) ? data.items : [];
+                        this.searchHighlightedIndex = this.searchSuggestions.length > 0 ? 0 : -1;
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            this.searchSuggestions = [];
+                            this.searchHighlightedIndex = -1;
+                        }
+                    } finally {
+                        if (this.searchController === controller) {
+                            this.searchLoading = false;
+                            this.searchController = null;
+                        }
+                    }
+                },
+
+                handleCatalogKeydown(event, rowIndex) {
+                    if (this.searchActiveRow !== rowIndex || this.searchSuggestions.length === 0) return;
+
+                    if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        this.searchHighlightedIndex = (this.searchHighlightedIndex + 1) % this.searchSuggestions.length;
+                    } else if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        this.searchHighlightedIndex = (this.searchHighlightedIndex - 1 + this.searchSuggestions.length) %
+                            this.searchSuggestions.length;
+                    } else if (event.key === 'Enter' && this.searchHighlightedIndex >= 0) {
+                        event.preventDefault();
+                        const selected = this.searchSuggestions[this.searchHighlightedIndex];
+                        if (selected) this.selectCatalogSuggestion(selected, rowIndex);
+                    } else if (event.key === 'Escape') {
+                        this.closeCatalogSearch();
+                    }
+                },
+
+                handleCatalogBlur(rowIndex, field) {
+                    clearTimeout(this.searchBlurTimer);
+                    this.searchBlurTimer = setTimeout(() => {
+                        if (field === 'kode_barang') {
+                            const row = this.pasteRows[rowIndex];
+                            const code = String(row?.kode_barang ?? '').trim().toUpperCase();
+                            const hasName = String(row?.nama_barang ?? '').trim() !== '';
+                            if (code !== '' && !hasName && this.searchSuggestions.length > 0) {
+                                const exact = this.searchSuggestions.find(
+                                    item => String(item.kode_barang ?? '').trim().toUpperCase() === code
+                                );
+                                if (exact) {
+                                    this.selectCatalogSuggestion(exact, rowIndex);
+                                    return;
+                                }
+                            }
+                        }
+                        if (this.searchActiveRow === rowIndex) {
+                            this.closeCatalogSearch();
+                        }
+                    }, 150);
+                },
+
+                selectCatalogSuggestion(item, rowIndex) {
+                    const row = this.pasteRows[rowIndex];
+                    if (!row || !item) return;
+
+                    row.kode_barang = item.kode_barang || '';
+                    row.nama_barang = item.nama_barang || '';
+                    row.kategori = item.kategori || '';
+                    row.satuan = item.satuan || '';
+                    this.closeCatalogSearch();
+                    this.scheduleGridValidation();
+                },
+
+                closeCatalogSearch() {
+                    clearTimeout(this.searchTimer);
+                    this.searchController?.abort();
+                    this.searchController = null;
+                    this.searchLoading = false;
+                    this.searchActiveRow = null;
+                    this.searchActiveField = null;
+                    this.searchHighlightedIndex = -1;
+                    this.searchSuggestions = [];
                 },
 
                 async analyzeGrid() {

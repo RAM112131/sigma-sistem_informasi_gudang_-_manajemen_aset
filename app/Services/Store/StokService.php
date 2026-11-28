@@ -738,6 +738,24 @@ final class StokService
      * }
      */
     /**
+     * Search active warehouse & master catalog items for import autocomplete using vector search.
+     *
+     * @return array<int, array{
+     *     kode_barang: string,
+     *     nama_barang: string,
+     *     kategori: string,
+     *     satuan: string,
+     *     satuan_nama: string,
+     *     source: string,
+     *     stok_awal_exists: bool
+     * }>
+     */
+    public function searchImportCatalog(Gudang $gudang, string $search, ?string $field = null, int $limit = 8): array
+    {
+        return $this->importService()->searchCatalog((int) $gudang->getKey(), $search, $field, $limit);
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $rows
      * @return array{
      *     rows: array<int, array<string, mixed>>,

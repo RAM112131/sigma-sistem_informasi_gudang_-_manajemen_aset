@@ -222,6 +222,66 @@
             text-align: center;
         }
 
+        .stock-paste-autocomplete {
+            position: fixed;
+            z-index: 70;
+            background: var(--surface-card, #ffffff);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, .14);
+            max-height: 260px;
+            overflow-y: auto;
+            padding: 4px;
+            font-size: .78rem;
+        }
+
+        .stock-paste-autocomplete-status {
+            padding: 8px 10px;
+            color: var(--text-muted);
+            font-size: .74rem;
+        }
+
+        .stock-paste-autocomplete-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 100%;
+            text-align: left;
+            padding: 7px 10px;
+            border: 0;
+            border-radius: calc(var(--radius) - 2px);
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .stock-paste-autocomplete-item:hover,
+        .stock-paste-autocomplete-item.is-active {
+            background: rgba(20, 92, 84, .09);
+        }
+
+        .stock-paste-autocomplete-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .stock-paste-autocomplete-code {
+            font-weight: 700;
+            color: var(--brand-primary);
+        }
+
+        .stock-paste-autocomplete-meta {
+            color: var(--text-muted);
+            font-size: .72rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
         @media (max-width: 640px) {
             .stock-import-details {
                 grid-template-columns: 1fr;

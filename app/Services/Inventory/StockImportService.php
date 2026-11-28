@@ -12,6 +12,7 @@ use App\Models\MasterBarang;
 use App\Models\Satuan;
 use App\Models\StokAwal;
 use App\Services\MasterData\MasterBarangService;
+use App\Services\SemanticVectorSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -26,7 +27,109 @@ final readonly class StockImportService
 {
     public function __construct(
         private MasterBarangService $masterBarangService,
+        private ?SemanticVectorSearch $semanticSearch = null,
     ) {}
+
+    /**
+     * Search active warehouse items and global master items using semantic vector search
+     * (with automatic text fallback) for import grid autocomplete.
+     *
+     * @return array<int, array{
+     *     kode_barang: string,
+     *     nama_barang: string,
+     *     kategori: string,
+     *     satuan: string,
+     *     satuan_nama: string,
+     *     source: string,
+     *     stok_awal_exists: bool
+     * }>
+     */
+    public function searchCatalog(int $gudangId, string $search, ?string $field = null, int $limit = 8): array
+    {
+        $trimmed = trim($search);
+        if ($trimmed === '') {
+            return [];
+        }
+
+        $semanticSearch = $this->semanticSearch ?? app(SemanticVectorSearch::class);
+        $fetchLimit = max($limit, 8);
+
+        $barangQuery = Barang::query()
+            ->with(['kategori:id,nama', 'satuan:id,kode,nama'])
+            ->where('gudang_id', $gudangId)
+            ->where('is_aktif', true);
+
+        $semanticSearch->apply($barangQuery, 'barangs', $trimmed);
+        $barangResults = $barangQuery
+            ->limit($fetchLimit)
+            ->get(['id', 'kode', 'nama', 'kategori_id', 'satuan_id']);
+
+        $existingStokAwalIds = $barangResults->isEmpty()
+            ? []
+            : StokAwal::query()
+                ->where('gudang_id', $gudangId)
+                ->whereIn('barang_id', $barangResults->pluck('id'))
+                ->pluck('barang_id')
+                ->mapWithKeys(static fn (int|string $id): array => [(int) $id => true])
+                ->all();
+
+        $masterQuery = MasterBarang::query()
+            ->with(['kategori:id,nama', 'satuan:id,kode,nama'])
+            ->where('is_aktif', true);
+
+        $semanticSearch->apply($masterQuery, 'master_barangs', $trimmed);
+        $masterResults = $masterQuery
+            ->limit($fetchLimit)
+            ->get(['id', 'kode', 'nama', 'kategori_id', 'satuan_id']);
+
+        $merged = [];
+
+        foreach ($barangResults as $barang) {
+            $codeKey = strtoupper(trim($barang->kode));
+            $merged[$codeKey] = [
+                'kode_barang' => $barang->kode,
+                'nama_barang' => $barang->nama,
+                'kategori' => $barang->kategori?->nama ?? '',
+                'satuan' => $barang->satuan?->kode ?? ($barang->satuan?->nama ?? ''),
+                'satuan_nama' => $barang->satuan?->nama ?? '',
+                'source' => 'barang',
+                'stok_awal_exists' => isset($existingStokAwalIds[(int) $barang->id]),
+            ];
+        }
+
+        foreach ($masterResults as $master) {
+            $codeKey = strtoupper(trim($master->kode));
+            if (isset($merged[$codeKey])) {
+                continue;
+            }
+
+            $merged[$codeKey] = [
+                'kode_barang' => $master->kode,
+                'nama_barang' => $master->nama,
+                'kategori' => $master->kategori?->nama ?? '',
+                'satuan' => $master->satuan?->kode ?? ($master->satuan?->nama ?? ''),
+                'satuan_nama' => $master->satuan?->nama ?? '',
+                'source' => 'master_barang',
+                'stok_awal_exists' => false,
+            ];
+        }
+
+        $items = array_values($merged);
+
+        if ($field === 'kode_barang') {
+            $needleUpper = strtoupper($trimmed);
+            usort($items, static function (array $a, array $b) use ($needleUpper): int {
+                $aCode = strtoupper($a['kode_barang']);
+                $bCode = strtoupper($b['kode_barang']);
+                $aExact = $aCode === $needleUpper ? 0 : (str_starts_with($aCode, $needleUpper) ? 1 : 2);
+                $bExact = $bCode === $needleUpper ? 0 : (str_starts_with($bCode, $needleUpper) ? 1 : 2);
+
+                return $aExact <=> $bExact;
+            });
+        }
+
+        return array_slice($items, 0, $limit);
+    }
 
     /**
      * @param  array<string, int|string>  $mapping
