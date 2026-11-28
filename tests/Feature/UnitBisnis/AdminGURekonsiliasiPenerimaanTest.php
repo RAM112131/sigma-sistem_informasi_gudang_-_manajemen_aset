@@ -461,6 +461,121 @@ final class AdminGURekonsiliasiPenerimaanTest extends TestCase
         return [$admin, $gudang];
     }
 
+    public function test_store_transfer_receipts_are_grouped_and_verified_by_surat_jalan_number(): void
+    {
+        [$admin, $gudang] = $this->makeAdminContext('GU-SJ-GROUP');
+        $store = Gudang::query()->create([
+            'kode' => 'STORE-SJ-GROUP',
+            'nama' => 'Gudang Store Armada',
+            'jenis' => 'gudang_store',
+            'is_aktif' => true,
+        ]);
+        $barang1 = $this->makeBarang($gudang, 'SJ-ITEM-01');
+        $barang2 = $this->makeBarang($gudang, 'SJ-ITEM-02');
+        $permintaan = PermintaanBarang::query()->create([
+            'nomor_pr' => 'REQ-SHT-30092026615-0002',
+            'gudang_peminta_id' => $gudang->getKey(),
+            'gudang_tujuan_id' => $store->getKey(),
+            'status' => 'selesai',
+        ]);
+
+        $transfer1 = TransferBarang::query()->create([
+            'nomor_sj' => 'OUT-STR-28112026831-0002-01',
+            'permintaan_barang_id' => $permintaan->getKey(),
+            'gudang_asal_id' => $store->getKey(),
+            'gudang_tujuan_id' => $gudang->getKey(),
+            'barang_id' => $barang1->getKey(),
+            'qty_diminta' => 10,
+            'qty_dikirim' => 10,
+            'qty_diterima' => 10,
+            'status' => 'diterima',
+        ]);
+        $transfer2 = TransferBarang::query()->create([
+            'nomor_sj' => 'OUT-STR-28112026831-0002-02',
+            'permintaan_barang_id' => $permintaan->getKey(),
+            'gudang_asal_id' => $store->getKey(),
+            'gudang_tujuan_id' => $gudang->getKey(),
+            'barang_id' => $barang2->getKey(),
+            'qty_diminta' => 5,
+            'qty_dikirim' => 5,
+            'qty_diterima' => 5,
+            'status' => 'diterima',
+        ]);
+
+        $receipt1 = PenerimaanPemindahanUnit::query()->create([
+            'transfer_barang_id' => $transfer1->getKey(),
+            'gudang_id' => $gudang->getKey(),
+            'barang_id' => $barang1->getKey(),
+            'qty_dikirim' => 10,
+            'qty_diterima' => 10,
+            'qty_rusak' => 0,
+            'diterima_at' => now(),
+        ]);
+        $receipt2 = PenerimaanPemindahanUnit::query()->create([
+            'transfer_barang_id' => $transfer2->getKey(),
+            'gudang_id' => $gudang->getKey(),
+            'barang_id' => $barang2->getKey(),
+            'qty_dikirim' => 5,
+            'qty_diterima' => 5,
+            'qty_rusak' => 0,
+            'diterima_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->get(route('unit-bisnis.admin-gu.rekonsiliasi-penerimaan.index', [
+                'gudang_id' => $gudang->getKey(),
+                'status' => 'menunggu_verifikasi',
+            ]));
+
+        $response->assertOk()
+            ->assertSee('<span>Rekonsiliasi Penerimaan</span>', false)
+            ->assertDontSee('<span>Verifikasi Penerimaan</span>', false)
+            ->assertSee('OUT-STR-28112026831-0002')
+            ->assertDontSee('OUT-STR-28112026831-0002-01')
+            ->assertDontSee('OUT-STR-28112026831-0002-02')
+            ->assertSee('SJ-ITEM-01')
+            ->assertSee('SJ-ITEM-02');
+
+        self::assertCount(1, $response->viewData('receipts')->getCollection());
+        self::assertSame(2, $response->viewData('receipts')->first()->details_count);
+        self::assertSame(1, $response->viewData('metrics')['pending_count']);
+
+        $this->actingAs($admin)
+            ->post(route('unit-bisnis.admin-gu.rekonsiliasi-penerimaan.verify', $receipt1->getKey()), [
+                'gudang_id' => $gudang->getKey(),
+                'sumber_penerimaan' => 'permintaan',
+                'items' => [
+                    [
+                        'detail_id' => $receipt1->getKey(),
+                        'qty_diperiksa' => 10,
+                        'qty_rusak_diperiksa' => 0,
+                    ],
+                    [
+                        'detail_id' => $receipt2->getKey(),
+                        'qty_diperiksa' => 5,
+                        'qty_rusak_diperiksa' => 0,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('unit-bisnis.admin-gu.rekonsiliasi-penerimaan.index', [
+                'gudang_id' => $gudang->getKey(),
+                'penerimaan_id' => $receipt1->getKey(),
+                'sumber_penerimaan' => 'permintaan',
+                'status' => 'sudah_diverifikasi',
+            ]));
+
+        $this->assertDatabaseHas('penerimaan_pemindahan_units', [
+            'id' => $receipt1->getKey(),
+            'status_verifikasi' => 'terverifikasi',
+            'qty_diperiksa' => 10,
+        ]);
+        $this->assertDatabaseHas('penerimaan_pemindahan_units', [
+            'id' => $receipt2->getKey(),
+            'status_verifikasi' => 'terverifikasi',
+            'qty_diperiksa' => 5,
+        ]);
+    }
+
     private function makeGudang(string $kode): Gudang
     {
         return Gudang::query()->create([

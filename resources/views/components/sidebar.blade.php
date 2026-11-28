@@ -371,7 +371,7 @@
                         <path d="M4 4h16v16H4z" />
                         <path d="M8 12h3l2 2 4-5" />
                     </svg>
-                    <span>Verifikasi Penerimaan</span>
+                    <span>Rekonsiliasi Penerimaan</span>
                 </a>
 
                 <a href="{{ route('unit-bisnis.admin-gu.rekonsiliasi-pengeluaran.index') }}"

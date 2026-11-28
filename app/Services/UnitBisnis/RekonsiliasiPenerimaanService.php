@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use stdClass;
@@ -59,29 +60,18 @@ final class RekonsiliasiPenerimaanService
             'tanggal' => $filters['tanggal'] ?? null,
         ];
 
-        $receipts = $this->filteredReceiptsQuery($activeGudang, $normalizedFilters)
-            ->orderByDesc('received_at')
-            ->orderByDesc('id')
-            ->orderBy('sumber_penerimaan')
-            ->paginate(12)
-            ->appends(array_diff_key($filters, ['q' => true]));
-        $receipts->setCollection($receipts->getCollection()->map(static function (stdClass $receipt): stdClass {
-            $receipt->received_at = Carbon::parse($receipt->received_at);
-
-            return $receipt;
-        }));
+        $receipts = $this->paginateGroupedReceipts($activeGudang, $normalizedFilters, $filters);
 
         $receiverFilters = $normalizedFilters;
         $receiverFilters['diterima_oleh'] = null;
-        $receiverIds = $this->filteredReceiptsQuery($activeGudang, $receiverFilters)
-            ->whereNotNull('diterima_oleh')
-            ->select('diterima_oleh')
-            ->distinct();
-        $receivers = User::withTrashed()
-            ->whereIn('id', $receiverIds)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->all();
+        $receiverIds = $this->collectReceiverIds($activeGudang, $receiverFilters);
+        $receivers = $receiverIds === []
+            ? []
+            : User::withTrashed()
+                ->whereIn('id', $receiverIds)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->all();
 
         $selectedReceiptId = $filters['penerimaan_id'] ?? $receipts->first()?->id;
         $selectedReceiptSource = isset($filters['penerimaan_id'])
@@ -221,13 +211,21 @@ final class RekonsiliasiPenerimaanService
         array $validated,
     ): bool {
         return DB::transaction(function () use ($user, $gudang, $penerimaanId, $validated): bool {
-            $receipt = PenerimaanPemindahanUnit::query()
+            $representative = PenerimaanPemindahanUnit::query()
                 ->where('gudang_id', $gudang->getKey())
+                ->with('transfer:id,nomor_sj')
                 ->whereKey($penerimaanId)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($receipt->status_verifikasi !== 'menunggu_verifikasi') {
+            $baseSj = $this->baseSuratJalan($representative->transfer?->nomor_sj);
+            $receipts = $this->findTransferGroupReceipts($gudang, $baseSj, lockForUpdate: true);
+
+            if ($receipts->isEmpty()) {
+                $receipts = collect([$representative]);
+            }
+
+            if ($receipts->contains(static fn (PenerimaanPemindahanUnit $r): bool => $r->status_verifikasi !== 'menunggu_verifikasi')) {
                 throw ValidationException::withMessages([
                     'items' => 'Penerimaan ini sudah diproses dan tidak dapat diverifikasi ulang.',
                 ]);
@@ -237,35 +235,53 @@ final class RekonsiliasiPenerimaanService
                 static fn (array $item): int => (int) $item['detail_id'],
             );
 
-            if ($submittedItems->count() !== 1 || ! $submittedItems->has((int) $receipt->getKey())) {
+            if ($submittedItems->count() !== $receipts->count()
+                || $receipts->contains(static fn (PenerimaanPemindahanUnit $r): bool => ! $submittedItems->has((int) $r->getKey()))) {
                 throw ValidationException::withMessages([
-                    'items' => 'Rincian yang dikirim tidak sesuai dengan barang pada penerimaan permintaan ini.',
+                    'items' => 'Rincian yang dikirim tidak sesuai dengan barang pada surat jalan ini.',
                 ]);
             }
 
-            $item = $submittedItems->first();
-            $quantityChecked = round((float) $item['qty_diperiksa'], 3);
-            $quantityDamaged = round((float) $item['qty_rusak_diperiksa'], 3);
+            $hasDiscrepancy = false;
+            $verifiedAt = now();
+            $rowsToUpdate = [];
 
-            if ($quantityDamaged > $quantityChecked) {
-                throw ValidationException::withMessages([
-                    'items' => 'Jumlah rusak tidak boleh melebihi jumlah fisik yang diperiksa.',
-                ]);
+            foreach ($receipts as $receipt) {
+                $item = $submittedItems->get((int) $receipt->getKey());
+                $quantityChecked = round((float) $item['qty_diperiksa'], 3);
+                $quantityDamaged = round((float) $item['qty_rusak_diperiksa'], 3);
+
+                if ($quantityDamaged > $quantityChecked) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Jumlah rusak tidak boleh melebihi jumlah fisik yang diperiksa.',
+                    ]);
+                }
+
+                $itemDiscrepancy = $quantityChecked !== round((float) $receipt->qty_diterima, 3)
+                    || $quantityDamaged !== round((float) $receipt->qty_rusak, 3)
+                    || (float) $receipt->qty_dikirim !== (float) $receipt->qty_diterima
+                    || $quantityDamaged > 0;
+                $hasDiscrepancy = $hasDiscrepancy || $itemDiscrepancy;
+
+                $rowsToUpdate[] = [
+                    'receipt' => $receipt,
+                    'qty_diperiksa' => $quantityChecked,
+                    'qty_rusak_diperiksa' => $quantityDamaged,
+                ];
             }
 
-            $hasDiscrepancy = $quantityChecked !== round((float) $receipt->qty_diterima, 3)
-                || $quantityDamaged !== round((float) $receipt->qty_rusak, 3)
-                || (float) $receipt->qty_dikirim !== (float) $receipt->qty_diterima
-                || $quantityDamaged > 0;
+            $finalStatus = $hasDiscrepancy ? 'perlu_tindak_lanjut' : 'terverifikasi';
 
-            $receipt->update([
-                'qty_diperiksa' => $quantityChecked,
-                'qty_rusak_diperiksa' => $quantityDamaged,
-                'status_verifikasi' => $hasDiscrepancy ? 'perlu_tindak_lanjut' : 'terverifikasi',
-                'diverifikasi_oleh' => $user->getKey(),
-                'diverifikasi_at' => now(),
-                'catatan_verifikasi' => $validated['catatan_verifikasi'] ?? null,
-            ]);
+            foreach ($rowsToUpdate as $entry) {
+                $entry['receipt']->update([
+                    'qty_diperiksa' => $entry['qty_diperiksa'],
+                    'qty_rusak_diperiksa' => $entry['qty_rusak_diperiksa'],
+                    'status_verifikasi' => $finalStatus,
+                    'diverifikasi_oleh' => $user->getKey(),
+                    'diverifikasi_at' => $verifiedAt,
+                    'catatan_verifikasi' => $validated['catatan_verifikasi'] ?? null,
+                ]);
+            }
 
             return $hasDiscrepancy;
         }, attempts: 3);
@@ -284,26 +300,41 @@ final class RekonsiliasiPenerimaanService
 
         if ($validated['sumber_penerimaan'] === 'permintaan') {
             DB::transaction(function () use ($user, $activeGudang, $penerimaanId, $validated): void {
-                $receipt = PenerimaanPemindahanUnit::query()
+                $representative = PenerimaanPemindahanUnit::query()
                     ->where('gudang_id', $activeGudang->getKey())
+                    ->with('transfer:id,nomor_sj')
                     ->whereKey($penerimaanId)
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($receipt->status_verifikasi !== 'perlu_tindak_lanjut' && ! $this->hasTransferDiscrepancy($receipt)) {
+                $baseSj = $this->baseSuratJalan($representative->transfer?->nomor_sj);
+                $receipts = $this->findTransferGroupReceipts($activeGudang, $baseSj, lockForUpdate: true);
+                if ($receipts->isEmpty()) {
+                    $receipts = collect([$representative]);
+                }
+
+                $hasOpenFollowUp = $receipts->contains(
+                    fn (PenerimaanPemindahanUnit $r): bool => $r->status_verifikasi === 'perlu_tindak_lanjut' || $this->hasTransferDiscrepancy($r)
+                );
+
+                if (! $hasOpenFollowUp) {
                     throw ValidationException::withMessages([
                         'catatan_tindak_lanjut' => 'Penerimaan ini tidak memiliki tindak lanjut yang masih terbuka.',
                     ]);
                 }
 
-                $receipt->update([
-                    'status_verifikasi' => 'perlu_tindak_lanjut',
-                    'catatan_verifikasi' => $this->appendFollowUpNote(
-                        $user,
-                        $receipt->catatan_verifikasi,
-                        $validated['catatan_tindak_lanjut'],
-                    ),
-                ]);
+                $updatedNote = $this->appendFollowUpNote(
+                    $user,
+                    $representative->catatan_verifikasi,
+                    $validated['catatan_tindak_lanjut'],
+                );
+
+                foreach ($receipts as $receipt) {
+                    $receipt->update([
+                        'status_verifikasi' => 'perlu_tindak_lanjut',
+                        'catatan_verifikasi' => $updatedNote,
+                    ]);
+                }
             }, attempts: 3);
 
             return;
@@ -361,15 +392,266 @@ final class RekonsiliasiPenerimaanService
     }
 
     /**
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed>  $normalizedFilters
+     * @param  array<string, mixed>  $rawFilters
      */
-    private function filteredReceiptsQuery(Gudang $gudang, array $filters): QueryBuilder
-    {
-        $supplierReceipts = $this->supplierReceiptsQuery($gudang, $filters);
-        $requestReceipts = $this->requestReceiptsQuery($gudang, $filters);
-        $supplierReceipts->unionAll($requestReceipts);
+    private function paginateGroupedReceipts(
+        Gudang $gudang,
+        array $normalizedFilters,
+        array $rawFilters,
+    ): LengthAwarePaginator {
+        $allReceipts = $this->buildGroupedReceipts($gudang, $normalizedFilters);
+        $perPage = 12;
+        $currentPage = Paginator::resolveCurrentPage();
+        $total = $allReceipts->count();
+        $slice = $allReceipts->slice(($currentPage - 1) * $perPage, $perPage)->values();
 
-        return DB::query()->fromSub($supplierReceipts, 'receipts')->select('receipts.*');
+        return (new Paginator(
+            $slice,
+            $total,
+            $perPage,
+            $currentPage,
+            ['path' => request()->url()],
+        ))->appends(array_diff_key($rawFilters, ['q' => true]));
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return list<int>
+     */
+    private function collectReceiverIds(Gudang $gudang, array $filters): array
+    {
+        return $this->buildGroupedReceipts($gudang, $filters)
+            ->flatMap(static fn (stdClass $receipt): array => $receipt->receiver_ids ?? [$receipt->diterima_oleh])
+            ->filter(static fn (mixed $id): bool => $id !== null)
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, stdClass>
+     */
+    private function buildGroupedReceipts(Gudang $gudang, array $filters): Collection
+    {
+        $supplierReceipts = $this->supplierReceiptsQuery($gudang, $filters)
+            ->get()
+            ->map(static function (stdClass $receipt): stdClass {
+                $receipt->received_at = Carbon::parse($receipt->received_at);
+                $receipt->receiver_ids = $receipt->diterima_oleh !== null ? [(int) $receipt->diterima_oleh] : [];
+
+                return $receipt;
+            });
+
+        $transferReceipts = $this->buildGroupedTransferReceipts($gudang, $filters);
+
+        return $supplierReceipts
+            ->concat($transferReceipts)
+            ->sort(static function (stdClass $a, stdClass $b): int {
+                $timeCmp = $b->received_at->getTimestamp() <=> $a->received_at->getTimestamp();
+                if ($timeCmp !== 0) {
+                    return $timeCmp;
+                }
+
+                $idCmp = (int) $b->id <=> (int) $a->id;
+                if ($idCmp !== 0) {
+                    return $idCmp;
+                }
+
+                return strcmp((string) $a->sumber_penerimaan, (string) $b->sumber_penerimaan);
+            })
+            ->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, stdClass>
+     */
+    private function buildGroupedTransferReceipts(Gudang $gudang, array $filters): Collection
+    {
+        $rows = DB::table('penerimaan_pemindahan_units as receipts')
+            ->join('transfer_barangs as transfers', 'transfers.id', '=', 'receipts.transfer_barang_id')
+            ->leftJoin('permintaan_barangs', 'permintaan_barangs.id', '=', 'transfers.permintaan_barang_id')
+            ->leftJoin('gudangs as source_warehouses', 'source_warehouses.id', '=', 'transfers.gudang_asal_id')
+            ->leftJoin('barangs', 'barangs.id', '=', 'receipts.barang_id')
+            ->where('receipts.gudang_id', $gudang->getKey())
+            ->orderBy('transfers.nomor_sj')
+            ->orderBy('receipts.id')
+            ->get([
+                'receipts.id',
+                'receipts.status_verifikasi',
+                'receipts.diterima_oleh',
+                'receipts.diverifikasi_at',
+                'receipts.diterima_at',
+                'receipts.qty_dikirim',
+                'receipts.qty_diterima',
+                'receipts.qty_rusak',
+                'receipts.qty_diperiksa',
+                'receipts.qty_rusak_diperiksa',
+                'transfers.nomor_sj',
+                DB::raw("COALESCE(source_warehouses.nama, 'Gudang Store') AS nama_supplier"),
+                DB::raw("COALESCE(permintaan_barangs.nomor_pr, '') AS po_referensi"),
+                DB::raw("COALESCE(barangs.kode, '') AS barang_kode"),
+                DB::raw("COALESCE(barangs.nama, '') AS barang_nama"),
+            ]);
+
+        if ($rows->isEmpty()) {
+            return collect();
+        }
+
+        $grouped = $rows->groupBy(fn (stdClass $row): string => $this->baseSuratJalan($row->nomor_sj));
+        $results = collect();
+
+        foreach ($grouped as $baseSj => $items) {
+            $groupStatus = $this->resolveTransferGroupStatus($items);
+            $hasDiscrepancy = $items->contains(fn (stdClass $item): bool => $this->rawTransferItemHasDiscrepancy($item));
+
+            $matchesStatus = match ($filters['status']) {
+                'sudah_diverifikasi' => in_array($groupStatus, ['terverifikasi', 'sesuai'], true) && ! $hasDiscrepancy,
+                'tindak_lanjut' => $groupStatus === 'perlu_tindak_lanjut'
+                    || (in_array($groupStatus, ['terverifikasi', 'sesuai'], true) && $hasDiscrepancy),
+                'semua' => true,
+                default => $groupStatus === 'menunggu_verifikasi',
+            };
+
+            if (! $matchesStatus) {
+                continue;
+            }
+
+            $receiverIds = $items->pluck('diterima_oleh')
+                ->filter(static fn (mixed $id): bool => $id !== null)
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($filters['diterima_oleh'] !== null && ! in_array((int) $filters['diterima_oleh'], $receiverIds, true)) {
+                continue;
+            }
+
+            $latestReceivedRaw = $items->max('diterima_at');
+            $receivedAt = Carbon::parse($latestReceivedRaw);
+
+            if ($filters['tanggal'] !== null) {
+                $targetDate = Carbon::parse($filters['tanggal'])->toDateString();
+                if (! $items->contains(static fn (stdClass $item): bool => Carbon::parse($item->diterima_at)->toDateString() === $targetDate)) {
+                    continue;
+                }
+            }
+
+            if ($filters['q'] !== '') {
+                $needle = mb_strtolower($filters['q']);
+                $haystackMatches = str_contains(mb_strtolower($baseSj), $needle)
+                    || $items->contains(static function (stdClass $item) use ($needle): bool {
+                        return str_contains(mb_strtolower((string) $item->nomor_sj), $needle)
+                            || str_contains(mb_strtolower((string) $item->po_referensi), $needle)
+                            || str_contains(mb_strtolower((string) $item->barang_kode), $needle)
+                            || str_contains(mb_strtolower((string) $item->barang_nama), $needle);
+                    });
+
+                if (! $haystackMatches) {
+                    continue;
+                }
+            }
+
+            $first = $items->first();
+            $latestVerifiedAt = $items->pluck('diverifikasi_at')->filter()->max();
+
+            $results->push((object) [
+                'sumber_penerimaan' => 'permintaan',
+                'id' => (int) $items->min('id'),
+                'nomor_rcv' => $baseSj,
+                'nama_supplier' => $first->nama_supplier,
+                'po_referensi' => $first->po_referensi,
+                'status_verifikasi' => $groupStatus,
+                'diterima_oleh' => $receiverIds[0] ?? null,
+                'receiver_ids' => $receiverIds,
+                'diverifikasi_at' => $latestVerifiedAt,
+                'details_count' => $items->count(),
+                'received_at' => $receivedAt,
+            ]);
+        }
+
+        return $results;
+    }
+
+    /**
+     * @return Collection<int, PenerimaanPemindahanUnit>
+     */
+    private function findTransferGroupReceipts(Gudang $gudang, string $baseSj, bool $lockForUpdate = false): Collection
+    {
+        $query = PenerimaanPemindahanUnit::query()
+            ->where('gudang_id', $gudang->getKey())
+            ->whereHas('transfer', static function (Builder $q) use ($baseSj): void {
+                $q->where('nomor_sj', $baseSj)
+                    ->orWhere('nomor_sj', 'like', $baseSj.'-%');
+            })
+            ->with([
+                'transfer.permintaanBarang',
+                'transfer.gudangAsal',
+                'barang' => static function (BelongsTo $q): void {
+                    $q->withTrashed();
+                },
+                'barang.kategori',
+                'barang.satuan',
+                'penerima:id,name',
+                'verifier:id,name',
+            ])
+            ->orderBy('id');
+
+        if ($lockForUpdate) {
+            $query->lockForUpdate();
+        }
+
+        return $query->get()
+            ->filter(fn (PenerimaanPemindahanUnit $item): bool => $this->baseSuratJalan($item->transfer?->nomor_sj) === $baseSj)
+            ->values();
+    }
+
+    private function baseSuratJalan(?string $nomorSj): string
+    {
+        $trimmed = trim((string) $nomorSj);
+        if ($trimmed === '') {
+            return '—';
+        }
+
+        return (string) preg_replace('/^(.+-\d{4})-\d{2,}$/', '$1', $trimmed);
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $items
+     */
+    private function resolveTransferGroupStatus(Collection $items): string
+    {
+        if ($items->contains(static fn (mixed $item): bool => $item->status_verifikasi === 'menunggu_verifikasi')) {
+            return 'menunggu_verifikasi';
+        }
+
+        if ($items->contains(fn (mixed $item): bool => $item->status_verifikasi === 'perlu_tindak_lanjut'
+            || ($item instanceof PenerimaanPemindahanUnit
+                ? $this->hasTransferDiscrepancy($item)
+                : $this->rawTransferItemHasDiscrepancy($item)))) {
+            return 'perlu_tindak_lanjut';
+        }
+
+        return 'terverifikasi';
+    }
+
+    private function rawTransferItemHasDiscrepancy(stdClass $item): bool
+    {
+        $checkedQuantity = $item->qty_diperiksa === null
+            ? (float) $item->qty_diterima
+            : (float) $item->qty_diperiksa;
+        $checkedDamaged = $item->qty_rusak_diperiksa === null
+            ? (float) $item->qty_rusak
+            : (float) $item->qty_rusak_diperiksa;
+
+        return round($checkedQuantity, 3) !== round((float) $item->qty_diterima, 3)
+            || round($checkedDamaged, 3) !== round((float) $item->qty_rusak, 3)
+            || (float) $item->qty_dikirim !== (float) $item->qty_diterima
+            || $checkedDamaged > 0;
     }
 
     /**
@@ -423,74 +705,6 @@ final class RekonsiliasiPenerimaanService
         return $query;
     }
 
-    /**
-     * @param  array<string, mixed>  $filters
-     */
-    private function requestReceiptsQuery(Gudang $gudang, array $filters): QueryBuilder
-    {
-        $query = DB::table('penerimaan_pemindahan_units as receipts')
-            ->join('transfer_barangs as transfers', 'transfers.id', '=', 'receipts.transfer_barang_id')
-            ->leftJoin('permintaan_barangs', 'permintaan_barangs.id', '=', 'transfers.permintaan_barang_id')
-            ->leftJoin('gudangs as source_warehouses', 'source_warehouses.id', '=', 'transfers.gudang_asal_id')
-            ->leftJoin('barangs', 'barangs.id', '=', 'receipts.barang_id')
-            ->where('receipts.gudang_id', $gudang->getKey())
-            ->selectRaw(
-                "'permintaan' AS sumber_penerimaan, receipts.id, transfers.nomor_sj AS nomor_rcv, ".
-                "COALESCE(source_warehouses.nama, 'Gudang Store') AS nama_supplier, ".
-                "COALESCE(permintaan_barangs.nomor_pr, '') AS po_referensi, receipts.status_verifikasi, ".
-                'receipts.diterima_oleh, receipts.diverifikasi_at, 1 AS details_count, '.
-                'CAST(receipts.diterima_at AS TEXT) AS received_at',
-            );
-
-        match ($filters['status']) {
-            'sudah_diverifikasi' => $query
-                ->whereIn('receipts.status_verifikasi', ['terverifikasi', 'sesuai'])
-                ->where(static function (QueryBuilder $query): void {
-                    $query->whereColumn('receipts.qty_dikirim', '=', 'receipts.qty_diterima')
-                        ->whereNotNull('receipts.qty_diperiksa')
-                        ->whereColumn('receipts.qty_diperiksa', '=', 'receipts.qty_diterima')
-                        ->whereColumn('receipts.qty_rusak_diperiksa', '=', 'receipts.qty_rusak')
-                        ->where('receipts.qty_rusak', 0);
-                }),
-            'tindak_lanjut' => $query->where(static function (QueryBuilder $query): void {
-                $query->where('receipts.status_verifikasi', 'perlu_tindak_lanjut')
-                    ->orWhere(static function (QueryBuilder $verified): void {
-                        $verified->whereIn('receipts.status_verifikasi', ['terverifikasi', 'sesuai'])
-                            ->where(static function (QueryBuilder $discrepancy): void {
-                                $discrepancy->whereColumn('receipts.qty_dikirim', '<>', 'receipts.qty_diterima')
-                                    ->orWhereColumn('receipts.qty_diperiksa', '<>', 'receipts.qty_diterima')
-                                    ->orWhereColumn('receipts.qty_rusak_diperiksa', '<>', 'receipts.qty_rusak')
-                                    ->orWhere('receipts.qty_rusak', '>', 0);
-                            });
-                    });
-            }),
-            'semua' => null,
-            default => $query->where('receipts.status_verifikasi', 'menunggu_verifikasi'),
-        };
-
-        if ($filters['diterima_oleh'] !== null) {
-            $query->where('receipts.diterima_oleh', $filters['diterima_oleh']);
-        }
-
-        if ($filters['tanggal'] !== null) {
-            $dateStart = Carbon::parse($filters['tanggal'])->startOfDay();
-            $query->where('receipts.diterima_at', '>=', $dateStart)
-                ->where('receipts.diterima_at', '<', $dateStart->copy()->addDay());
-        }
-
-        if ($filters['q'] !== '') {
-            $search = '%'.mb_strtolower($filters['q']).'%';
-            $query->where(static function (QueryBuilder $query) use ($search): void {
-                $query->whereRaw('LOWER(transfers.nomor_sj) LIKE ?', [$search])
-                    ->orWhereRaw('LOWER(COALESCE(permintaan_barangs.nomor_pr, \'\')) LIKE ?', [$search])
-                    ->orWhereRaw('LOWER(COALESCE(barangs.kode, \'\')) LIKE ?', [$search])
-                    ->orWhereRaw('LOWER(COALESCE(barangs.nama, \'\')) LIKE ?', [$search]);
-            });
-        }
-
-        return $query;
-    }
-
     private static function supplierDiscrepancyQuery(): QueryBuilder
     {
         return DB::table('penerimaan_unit_details as details')
@@ -513,58 +727,66 @@ final class RekonsiliasiPenerimaanService
     private function findSelectedReceipt(Gudang $gudang, int $receiptId, string $source): stdClass
     {
         if ($source === 'permintaan') {
-            $receipt = PenerimaanPemindahanUnit::query()
+            $representative = PenerimaanPemindahanUnit::query()
                 ->where('gudang_id', $gudang->getKey())
-                ->with([
-                    'transfer.permintaanBarang',
-                    'transfer.gudangAsal',
-                    'barang' => static function (BelongsTo $query): void {
-                        $query->withTrashed();
-                    },
-                    'barang.kategori',
-                    'barang.satuan',
-                    'penerima:id,name',
-                    'verifier:id,name',
-                ])
+                ->with('transfer:id,nomor_sj')
                 ->find($receiptId);
 
-            abort_unless($receipt instanceof PenerimaanPemindahanUnit, 404);
+            abort_unless($representative instanceof PenerimaanPemindahanUnit, 404);
 
-            $transfer = $receipt->transfer;
-            $barang = $receipt->barang;
-            $detail = (object) [
-                'id' => (int) $receipt->getKey(),
-                'kode_barang' => $barang?->kode,
-                'nama_barang' => $barang?->nama ?? 'Barang tidak tersedia',
-                'kategori' => $barang?->kategori?->nama,
-                'satuan' => $barang?->satuan?->nama ?? 'unit',
-                'qty_diterima' => (float) $receipt->qty_diterima,
-                'qty_rusak' => (float) $receipt->qty_rusak,
-                'qty_diperiksa' => $receipt->qty_diperiksa,
-                'qty_rusak_diperiksa' => $receipt->qty_rusak_diperiksa,
-                'harga_beli' => 0.0,
-                'subtotal_nilai' => 0.0,
-                'catatan' => $receipt->catatan_discrepancy,
-            ];
+            $baseSj = $this->baseSuratJalan($representative->transfer?->nomor_sj);
+            $groupReceipts = $this->findTransferGroupReceipts($gudang, $baseSj);
+            if ($groupReceipts->isEmpty()) {
+                $groupReceipts = collect([$representative]);
+            }
+
+            $first = $groupReceipts->first();
+            $transfer = $first->transfer;
+            $details = $groupReceipts->map(static function (PenerimaanPemindahanUnit $item): stdClass {
+                $barang = $item->barang;
+
+                return (object) [
+                    'id' => (int) $item->getKey(),
+                    'kode_barang' => $barang?->kode,
+                    'nama_barang' => $barang?->nama ?? 'Barang tidak tersedia',
+                    'kategori' => $barang?->kategori?->nama,
+                    'satuan' => $barang?->satuan?->nama ?? 'unit',
+                    'qty_diterima' => (float) $item->qty_diterima,
+                    'qty_rusak' => (float) $item->qty_rusak,
+                    'qty_diperiksa' => $item->qty_diperiksa,
+                    'qty_rusak_diperiksa' => $item->qty_rusak_diperiksa,
+                    'harga_beli' => 0.0,
+                    'subtotal_nilai' => 0.0,
+                    'catatan' => $item->catatan_discrepancy,
+                ];
+            })->values();
+
+            $groupStatus = $this->resolveTransferGroupStatus($groupReceipts);
+            $notes = $groupReceipts
+                ->pluck('catatan_discrepancy')
+                ->filter(static fn (?string $note): bool => trim((string) $note) !== '')
+                ->unique()
+                ->implode("\n");
+            $verifiedReceipt = $groupReceipts->firstWhere('diverifikasi_at', '!=', null);
 
             return (object) [
-                'id' => (int) $receipt->getKey(),
+                'id' => (int) $groupReceipts->min('id'),
                 'sumber_penerimaan' => 'permintaan',
-                'nomor_rcv' => $transfer?->nomor_sj ?? '—',
+                'nomor_rcv' => $baseSj,
                 'nama_supplier' => $transfer?->gudangAsal?->nama ?? 'Gudang Store',
                 'po_referensi' => $transfer?->permintaanBarang?->nomor_pr,
-                'nomor_surat_jalan' => $transfer?->nomor_sj,
-                'tanggal_terima' => $receipt->diterima_at,
-                'waktu_terima' => $receipt->diterima_at?->format('H:i:s'),
+                'nomor_surat_jalan' => $baseSj,
+                'tanggal_terima' => $first->diterima_at,
+                'waktu_terima' => $first->diterima_at?->format('H:i:s'),
                 'has_surat_jalan' => true,
                 'alasan_tanpa_sj' => null,
-                'status_verifikasi' => $receipt->status_verifikasi,
-                'catatan' => $receipt->catatan_discrepancy,
-                'catatan_verifikasi' => $receipt->catatan_verifikasi,
-                'diverifikasi_at' => $receipt->diverifikasi_at,
-                'penerima' => $receipt->penerima,
-                'verifier' => $receipt->verifier,
-                'details' => collect([$detail]),
+                'status_verifikasi' => $groupStatus,
+                'catatan' => $notes !== '' ? $notes : null,
+                'catatan_verifikasi' => $verifiedReceipt?->catatan_verifikasi ?? $first->catatan_verifikasi,
+                'diverifikasi_at' => $verifiedReceipt?->diverifikasi_at,
+                'penerima' => $first->penerima,
+                'verifier' => $verifiedReceipt?->verifier ?? $first->verifier,
+                'details' => $details,
             ];
         }
 
@@ -667,27 +889,32 @@ final class RekonsiliasiPenerimaanService
     private function metricsForGudang(Gudang $gudang): array
     {
         $today = today();
+        $todayDate = $today->toDateString();
         $monthStart = $today->copy()->startOfMonth();
         $monthEnd = $today->copy()->endOfMonth();
-        $receiptMetrics = DB::query()
-            ->fromSub(
-                $this->supplierReceiptMetricsQuery($gudang, $today)
-                    ->unionAll($this->requestReceiptMetricsQuery($gudang, $today)),
-                'source_metrics',
-            )
-            ->selectRaw(
-                'SUM(pending_count) AS pending_count, '.
-                'SUM(verified_count) AS verified_count, '.
-                'SUM(verified_today_count) AS verified_today_count, '.
-                'SUM(follow_up_count) AS follow_up_count',
-            )
-            ->first();
+
+        $supplierMetrics = $this->supplierReceiptMetricsQuery($gudang, $today)->first();
+        $transferGroups = $this->buildGroupedTransferReceipts($gudang, [
+            'status' => 'semua',
+            'diterima_oleh' => null,
+            'tanggal' => null,
+            'q' => '',
+        ]);
+
+        $transferPending = $transferGroups->where('status_verifikasi', 'menunggu_verifikasi')->count();
+        $transferVerified = $transferGroups->whereIn('status_verifikasi', ['terverifikasi', 'sesuai'])->count();
+        $transferFollowUp = $transferGroups->where('status_verifikasi', 'perlu_tindak_lanjut')->count();
+        $transferVerifiedToday = $transferGroups->filter(
+            static fn (stdClass $group): bool => in_array($group->status_verifikasi, ['terverifikasi', 'perlu_tindak_lanjut', 'sesuai'], true)
+                && $group->diverifikasi_at !== null
+                && Carbon::parse($group->diverifikasi_at)->toDateString() === $todayDate
+        )->count();
 
         return [
-            'pending_count' => (int) $receiptMetrics->pending_count,
-            'verified_count' => (int) $receiptMetrics->verified_count,
-            'verified_today_count' => (int) $receiptMetrics->verified_today_count,
-            'follow_up_count' => (int) $receiptMetrics->follow_up_count,
+            'pending_count' => (int) $supplierMetrics->pending_count + $transferPending,
+            'verified_count' => (int) $supplierMetrics->verified_count + $transferVerified,
+            'verified_today_count' => (int) $supplierMetrics->verified_today_count + $transferVerifiedToday,
+            'follow_up_count' => (int) $supplierMetrics->follow_up_count + $transferFollowUp,
             'month_value' => (float) PenerimaanUnitDetail::query()
                 ->whereHas('penerimaanUnit', static fn (Builder $query): Builder => $query
                     ->where('gudang_id', $gudang->getKey())
@@ -717,30 +944,6 @@ final class RekonsiliasiPenerimaanService
                     'THEN 1 END) AS follow_up_count, '.
                 "COUNT(CASE WHEN status_verifikasi IN ('terverifikasi', 'perlu_tindak_lanjut', 'sesuai') ".
                     'AND DATE(diverifikasi_at) = ? THEN 1 END) AS verified_today_count',
-                [$today->toDateString()],
-            );
-    }
-
-    private function requestReceiptMetricsQuery(Gudang $gudang, Carbon $today): QueryBuilder
-    {
-        return DB::table('penerimaan_pemindahan_units as receipts')
-            ->where('receipts.gudang_id', $gudang->getKey())
-            ->selectRaw(
-                "COUNT(CASE WHEN receipts.status_verifikasi = 'menunggu_verifikasi' THEN 1 END) AS pending_count, ".
-                "COUNT(CASE WHEN receipts.status_verifikasi IN ('terverifikasi', 'sesuai') ".
-                    'AND receipts.qty_dikirim = receipts.qty_diterima '.
-                    'AND receipts.qty_diperiksa IS NOT NULL '.
-                    'AND receipts.qty_diperiksa = receipts.qty_diterima '.
-                    'AND receipts.qty_rusak_diperiksa = receipts.qty_rusak '.
-                    'AND receipts.qty_rusak = 0 THEN 1 END) AS verified_count, '.
-                "COUNT(CASE WHEN receipts.status_verifikasi = 'perlu_tindak_lanjut' OR ".
-                    "(receipts.status_verifikasi IN ('terverifikasi', 'sesuai') AND (".
-                    'receipts.qty_dikirim <> receipts.qty_diterima '.
-                    'OR receipts.qty_diperiksa <> receipts.qty_diterima '.
-                    'OR receipts.qty_rusak_diperiksa <> receipts.qty_rusak '.
-                    'OR receipts.qty_rusak > 0)) THEN 1 END) AS follow_up_count, '.
-                "COUNT(CASE WHEN receipts.status_verifikasi IN ('terverifikasi', 'perlu_tindak_lanjut', 'sesuai') ".
-                    'AND DATE(receipts.diverifikasi_at) = ? THEN 1 END) AS verified_today_count',
                 [$today->toDateString()],
             );
     }
