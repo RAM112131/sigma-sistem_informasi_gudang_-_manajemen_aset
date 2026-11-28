@@ -285,23 +285,85 @@
         }
 
         .stock-review-cell {
-            min-width: 190px;
+            min-width: 150px;
+            white-space: nowrap;
         }
 
-        .stock-review-detail {
-            margin-top: 4px;
-            font-size: .71rem;
-            line-height: 1.35;
+        .stock-review-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stock-review-info-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            border: 1px solid var(--surface-border);
+            background: var(--surface-base);
             color: var(--text-muted);
+            font-size: .72rem;
+            font-weight: 800;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
         }
 
-        .stock-review-detail.is-error {
+        .stock-review-info-btn:hover,
+        .stock-review-info-btn.is-active {
+            background: var(--brand-primary);
+            border-color: var(--brand-primary);
+            color: #ffffff;
+        }
+
+        .stock-review-info-btn.is-error {
+            border-color: rgba(185, 28, 28, .35);
+            background: rgba(185, 28, 28, .08);
             color: var(--status-critical, #b91c1c);
-            font-weight: 500;
         }
 
-        .stock-review-detail.is-valid {
-            color: var(--status-success, #15803d);
+        .stock-review-info-btn.is-error:hover,
+        .stock-review-info-btn.is-error.is-active {
+            background: var(--status-critical, #b91c1c);
+            border-color: var(--status-critical, #b91c1c);
+            color: #ffffff;
+        }
+
+        .stock-review-popover {
+            position: fixed;
+            z-index: 75;
+            width: min(300px, calc(100vw - 24px));
+            background: var(--surface-card, #ffffff);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, .16);
+            padding: 10px 12px;
+            font-size: .76rem;
+            line-height: 1.45;
+            color: var(--text-primary);
+        }
+
+        .stock-review-popover-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .stock-review-popover-title.is-error {
+            color: var(--status-critical, #b91c1c);
+        }
+
+        .stock-review-popover-list {
+            margin: 0;
+            padding-left: 16px;
+        }
+
+        .stock-review-popover-list li+li {
+            margin-top: 2px;
         }
 
         .stock-paste-autocomplete-code {

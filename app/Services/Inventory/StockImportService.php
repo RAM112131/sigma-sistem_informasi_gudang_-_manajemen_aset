@@ -339,6 +339,25 @@ final readonly class StockImportService
                 $qty = $numericQty !== null && floor($numericQty) === $numericQty
                     ? (int) $numericQty
                     : null;
+                $hargaRaw = trim((string) ($row['harga_satuan'] ?? ''));
+                $hargaSatuan = 0.0;
+                if ($hargaRaw !== '') {
+                    if (! is_numeric($hargaRaw) || (float) $hargaRaw < 0) {
+                        $issues[] = 'harga_satuan harus berupa angka minimal 0';
+                    } else {
+                        $hargaSatuan = (float) $hargaRaw;
+                    }
+                }
+                $minimumStokRaw = trim((string) ($row['minimum_stok'] ?? ''));
+                $minimumStok = null;
+                if ($minimumStokRaw !== '') {
+                    $numericMinimumStok = is_numeric($minimumStokRaw) ? (float) $minimumStokRaw : null;
+                    if ($numericMinimumStok === null || $numericMinimumStok < 0 || floor($numericMinimumStok) !== $numericMinimumStok) {
+                        $issues[] = 'minimum_stok harus berupa bilangan bulat minimal 0';
+                    } else {
+                        $minimumStok = (int) $numericMinimumStok;
+                    }
+                }
                 $catatan = trim((string) ($row['catatan'] ?? ''));
 
                 if ($kode === '') {
@@ -429,6 +448,8 @@ final readonly class StockImportService
                     'kategori' => $kategori,
                     'satuan' => $satuan,
                     'qty' => $qty,
+                    'harga_satuan' => $hargaSatuan,
+                    'minimum_stok' => $minimumStok,
                     'catatan' => $catatan,
                     'status' => $status,
                     'is_duplicate' => false,
@@ -508,7 +529,7 @@ final readonly class StockImportService
                         })
                         ->with(['satuan:id,kode', 'masterBarang:id,nama,is_aktif'])
                         ->orderBy('id')
-                        ->get(['id', 'master_barang_id', 'satuan_id', 'kode', 'nama']);
+                        ->get(['id', 'master_barang_id', 'satuan_id', 'kode', 'nama', 'minimum_stok', 'harga_satuan']);
                 $barangsByCode = [];
                 $barangsByName = [];
                 foreach ($existingBarangs as $existingBarang) {
@@ -624,22 +645,45 @@ final readonly class StockImportService
                                 );
                             }
 
+                            $hargaSatuan = isset($row['harga_satuan']) && is_numeric($row['harga_satuan'])
+                                ? max(0.0, (float) $row['harga_satuan'])
+                                : 0.0;
+                            $minimumStok = isset($row['minimum_stok']) && is_numeric($row['minimum_stok'])
+                                ? max(0, (int) $row['minimum_stok'])
+                                : null;
+
                             if (! $barang) {
                                 $barang = $this->masterBarangService->registerInWarehouse(
                                     $masterBarang,
                                     $gudang,
                                     $kode,
-                                    10,
+                                    $minimumStok ?? 10,
                                 );
+                                if ($hargaSatuan > 0) {
+                                    $barang->update(['harga_satuan' => $hargaSatuan]);
+                                }
                                 $created++;
-                            } elseif (! $barang->master_barang_id) {
-                                $barang->update(['master_barang_id' => $masterBarang->id]);
+                            } else {
+                                $updates = [];
+                                if (! $barang->master_barang_id) {
+                                    $updates['master_barang_id'] = $masterBarang->id;
+                                }
+                                if ($hargaSatuan > 0 && (float) ($barang->harga_satuan ?? 0) <= 0) {
+                                    $updates['harga_satuan'] = $hargaSatuan;
+                                }
+                                if ($minimumStok !== null && (int) $barang->minimum_stok !== $minimumStok) {
+                                    $updates['minimum_stok'] = $minimumStok;
+                                }
+                                if ($updates !== []) {
+                                    $barang->update($updates);
+                                }
                             }
 
                             StokAwal::create([
                                 'gudang_id' => $gudangId,
                                 'barang_id' => $barang->id,
                                 'qty' => (int) $row['qty'],
+                                'harga_awal' => $hargaSatuan,
                                 'tanggal_acuan' => $tanggalAcuan,
                                 'catatan' => trim((string) ($row['catatan'] ?? '')) ?: ($catatanUmum ?? 'Import Data Awal'),
                                 'sumber' => 'import',

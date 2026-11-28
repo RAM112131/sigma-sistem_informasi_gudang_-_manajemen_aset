@@ -39,6 +39,8 @@ final class ProcessUnitStockImportRequest extends FormRequest
             'rows.*.kategori' => ['required', 'string'],
             'rows.*.satuan' => ['required', 'string'],
             'rows.*.qty' => ['required', 'integer', 'min:0'],
+            'rows.*.harga_satuan' => ['nullable', 'numeric', 'min:0'],
+            'rows.*.minimum_stok' => ['nullable', 'integer', 'min:0'],
             'rows.*.catatan' => ['nullable', 'string'],
         ];
     }

@@ -659,6 +659,72 @@ final class UnitStockInitialImportTest extends TestCase
         $this->assertDatabaseHas('barangs', ['id' => $barang->id]);
     }
 
+    public function test_recording_gu_can_analyze_and_import_minimum_stok_column(): void
+    {
+        [$recording, $gudang] = $this->makeRecordingContext();
+
+        $this->actingAs($recording)
+            ->withSession(['active_gudang_id' => $gudang->id])
+            ->postJson(route('unit-bisnis.stok.import-analyze'), [
+                'rows' => [
+                    [
+                        'row' => 1,
+                        'kode_barang' => 'MIN-001',
+                        'nama_barang' => 'Barang Minimum Valid',
+                        'kategori' => 'Kemasan',
+                        'satuan' => 'PCS',
+                        'qty' => '25',
+                        'harga_satuan' => '15000',
+                        'minimum_stok' => '12',
+                        'catatan' => '',
+                    ],
+                    [
+                        'row' => 2,
+                        'kode_barang' => 'MIN-002',
+                        'nama_barang' => 'Barang Minimum Invalid',
+                        'kategori' => 'Kemasan',
+                        'satuan' => 'PCS',
+                        'qty' => '10',
+                        'harga_satuan' => '5000',
+                        'minimum_stok' => '-3',
+                        'catatan' => '',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('summary.ok', 1)
+            ->assertJsonPath('summary.error', 1)
+            ->assertJsonPath('rows.0.minimum_stok', 12)
+            ->assertJsonPath('rows.1.issues.0', 'minimum_stok harus berupa bilangan bulat minimal 0');
+
+        $this->actingAs($recording)
+            ->withSession(['active_gudang_id' => $gudang->id])
+            ->postJson(route('unit-bisnis.stok.import-process'), [
+                'tanggal_acuan' => '2026-10-01',
+                'rows' => [[
+                    'row' => 1,
+                    'kode_barang' => 'MIN-001',
+                    'nama_barang' => 'Barang Minimum Valid',
+                    'kategori' => 'Kemasan',
+                    'satuan' => 'PCS',
+                    'qty' => 25,
+                    'harga_satuan' => 15000,
+                    'minimum_stok' => 12,
+                    'catatan' => 'Stok awal dengan minimum stok',
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('success_count', 1);
+
+        $this->assertDatabaseHas('barangs', [
+            'gudang_id' => $gudang->id,
+            'kode' => 'MIN-001',
+            'minimum_stok' => 12,
+            'harga_satuan' => 15000,
+        ]);
+    }
+
     /**
      * @return array{User, Gudang}
      */

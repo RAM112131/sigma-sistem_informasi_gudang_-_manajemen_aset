@@ -291,8 +291,8 @@
                         <div
                             style="margin-top:14px;padding:12px 14px;background:rgba(20,92,84,.05);border:1px solid rgba(20,92,84,.15);border-radius:var(--radius);font-size:.79rem;color:var(--text-muted);">
                             <strong style="color:var(--brand-primary);">Kolom template:</strong>
-                            <code style="margin-left:6px;">kode_barang · nama_barang · kategori · satuan · qty ·
-                                catatan</code>
+                            <code style="margin-left:6px;">kode_barang · nama_barang · kategori · satuan · qty · harga_satuan ·
+                                minimum_stok · catatan</code>
                         </div>
                     </div>
 
@@ -361,22 +361,30 @@
                                             <td><input type="number" min="0" step="1" x-model="row.qty"
                                                     placeholder="0" @input="scheduleGridValidation()"
                                                     @paste="handleGridPaste($event, visibleRowIndex, 4)"></td>
+                                            <td><input type="number" min="0" step="0.01" x-model="row.harga_satuan"
+                                                    placeholder="0" @input="scheduleGridValidation()"
+                                                    @paste="handleGridPaste($event, visibleRowIndex, 5)"></td>
+                                            <td><input type="number" min="0" step="1" x-model="row.minimum_stok"
+                                                    placeholder="10" @input="scheduleGridValidation()"
+                                                    @paste="handleGridPaste($event, visibleRowIndex, 6)"></td>
                                             <td><input type="text" x-model="row.catatan"
                                                     placeholder="Catatan opsional" @input="scheduleGridValidation()"
-                                                    @paste="handleGridPaste($event, visibleRowIndex, 5)"></td>
+                                                    @paste="handleGridPaste($event, visibleRowIndex, 7)"></td>
                                             <td class="stock-review-cell">
                                                 <template x-if="row._validation">
-                                                    <div>
+                                                    <div class="stock-review-inline">
                                                         <span class="badge" :class="validationBadgeClass(row._validation)"
-                                                            :title="(row._validation.issues || []).concat(row._validation
-                                                                .warnings || []).join(' | ')"
                                                             x-text="validationStatusLabel(row._validation)"></span>
-                                                        <div class="stock-review-detail"
+                                                        <button type="button" class="stock-review-info-btn"
                                                             :class="{
                                                                 'is-error': row._validation.status === 'error',
-                                                                'is-valid': row._validation.status === 'ok'
+                                                                'is-active': reviewPopoverRow === pasteRowIndex(visibleRowIndex)
                                                             }"
-                                                            x-text="validationDetailText(row._validation)"></div>
+                                                            :aria-expanded="reviewPopoverRow === pasteRowIndex(visibleRowIndex)"
+                                                            aria-label="Lihat keterangan review"
+                                                            @click.stop="toggleReviewPopover($event.currentTarget, pasteRowIndex(visibleRowIndex))">
+                                                            !
+                                                        </button>
                                                     </div>
                                                 </template>
                                                 <span x-show="!row._validation && isRowFilled(row)"
@@ -435,6 +443,32 @@
                             </div>
                         </div>
 
+                        {{-- Floating Review Detail Popover --}}
+                        <div x-show="reviewPopoverRow !== null" x-cloak class="stock-review-popover"
+                            :style="reviewPopoverStyle" role="dialog" aria-label="Keterangan hasil review"
+                            @click.outside="closeReviewPopover()"
+                            @keydown.escape.window="if (reviewPopoverRow !== null) closeReviewPopover()">
+                            <template x-if="reviewPopoverData">
+                                <div>
+                                    <div class="stock-review-popover-title"
+                                        :class="{ 'is-error': reviewPopoverData.status === 'error' }"
+                                        x-text="validationStatusLabel(reviewPopoverData)"></div>
+                                    <template
+                                        x-if="reviewPopoverData.status === 'error' && (reviewPopoverData.issues || []).length > 0">
+                                        <ul class="stock-review-popover-list">
+                                            <template x-for="(issue, iIdx) in reviewPopoverData.issues" :key="iIdx">
+                                                <li x-text="formatHumanIssue(issue)"></li>
+                                            </template>
+                                        </ul>
+                                    </template>
+                                    <template
+                                        x-if="reviewPopoverData.status !== 'error' || (reviewPopoverData.issues || []).length === 0">
+                                        <div x-text="validationDetailText(reviewPopoverData)"></div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
                         <div class="stock-paste-pagination">
                             <span x-text="pastePaginationLabel"></span>
                             <div style="display:flex;gap:6px;">
@@ -453,8 +487,8 @@
                                 <span style="color:var(--status-success);">✓ Siap diimpor: <strong
                                         x-text="validSummary.ok"></strong></span>
                                 <span style="color:var(--status-warning);" x-show="validSummary.duplicate > 0">⚠
-                                    Duplikat/Lewati: <strong x-text="validSummary.duplicate"></strong></span>
-                                <span style="color:var(--status-critical);" x-show="validSummary.error > 0">✗ Error:
+                                    Data ganda/Lewati: <strong x-text="validSummary.duplicate"></strong></span>
+                                <span style="color:var(--status-critical);" x-show="validSummary.error > 0">✗ Perlu diperbaiki:
                                     <strong x-text="validSummary.error"></strong></span>
                                 <span x-show="validating"
                                     style="font-size:.75rem;color:var(--text-muted);">Memvalidasi...</span>
@@ -671,6 +705,16 @@
                         required: true
                     },
                     {
+                        key: 'harga_satuan',
+                        label: 'Harga / Item',
+                        required: false
+                    },
+                    {
+                        key: 'minimum_stok',
+                        label: 'Stok Minimum',
+                        required: false
+                    },
+                    {
                         key: 'catatan',
                         label: 'Catatan',
                         required: false
@@ -703,6 +747,8 @@
                 searchTimer: null,
                 searchController: null,
                 searchBlurTimer: null,
+                reviewPopoverRow: null,
+                reviewPopoverStyle: '',
 
                 init() {
                     this.buildCatalogIndexes();
@@ -752,6 +798,8 @@
                         kategori: '',
                         satuan: '',
                         qty: '',
+                        harga_satuan: '',
+                        minimum_stok: '',
                         catatan: ''
                     };
                 },
@@ -803,30 +851,77 @@
 
                 validationBadgeClass(val) {
                     if (val.status === 'ok') return 'badge-success';
+                    if (val.status === 'has_stok') return 'badge-warning';
                     if (val.status === 'duplicate') return 'badge-warning';
                     return 'badge-critical';
                 },
 
                 validationStatusLabel(val) {
-                    if (val.status === 'ok') return val.is_new_barang ? 'Baru' : 'Valid';
-                    if (val.status === 'duplicate') return 'Duplikat';
-                    return 'Error';
+                    if (val.status === 'ok') return val.is_new_barang ? 'Barang Baru' : 'Siap Diimpor';
+                    if (val.status === 'has_stok') return 'Sudah Ada Stok Awal';
+                    if (val.status === 'duplicate') return 'Data Ganda';
+                    return 'Perlu Diperbaiki';
+                },
+
+                formatHumanIssue(issue) {
+                    const text = String(issue ?? '').trim();
+                    const map = {
+                        'kode_barang wajib diisi': 'Kode barang belum diisi',
+                        'nama_barang wajib diisi': 'Nama barang belum diisi',
+                        'kategori wajib diisi': 'Kategori belum diisi',
+                        'satuan wajib diisi': 'Satuan belum diisi',
+                        'qty harus berupa angka': 'Jumlah stok harus berupa angka',
+                        'qty tidak boleh negatif': 'Jumlah stok tidak boleh kurang dari 0',
+                        'qty harus berupa bilangan bulat': 'Jumlah stok harus angka bulat (tanpa desimal)',
+                        'harga_satuan harus berupa angka minimal 0': 'Harga per item harus berupa angka minimal 0',
+                        'minimum_stok harus berupa bilangan bulat minimal 0': 'Stok minimum harus berupa angka bulat minimal 0',
+                        'Stok awal untuk barang ini sudah pernah tercatat di gudang Store.': 'Stok awal barang ini sudah pernah diinput sebelumnya.',
+                    };
+                    if (map[text]) return map[text];
+                    return text
+                        .replace(/^Duplikat di file:\s*/i, 'Data ganda di tabel: ')
+                        .replace(/^Satuan tidak cocok:/i, 'Satuan tidak sesuai:');
                 },
 
                 validationDetailText(val) {
                     if (!val) return '';
                     if (val.status === 'error') {
                         return Array.isArray(val.issues) && val.issues.length > 0
-                            ? val.issues.join(' • ')
-                            : 'Data tidak valid.';
+                            ? val.issues.map(issue => this.formatHumanIssue(issue)).join(' • ')
+                            : 'Periksa kembali data pada baris ini.';
+                    }
+                    if (val.status === 'has_stok') {
+                        return 'Stok awal untuk barang ini sudah pernah diinput. Baris ini akan dilewati saat proses import.';
                     }
                     if (val.status === 'duplicate') {
-                        return val.dup_reason || 'Duplikat di tabel.';
+                        return val.dup_reason || 'Data barang sama dengan baris lain di tabel.';
                     }
                     if (val.is_new_barang) {
-                        return 'Barang baru akan dibuat otomatis.';
+                        return 'Barang belum ada di gudang, akan dibuatkan otomatis.';
                     }
-                    return 'Siap diimpor ke stok awal.';
+                    return 'Data lengkap dan siap dimasukkan ke stok awal.';
+                },
+
+                get reviewPopoverData() {
+                    if (this.reviewPopoverRow === null) return null;
+                    return this.pasteRows[this.reviewPopoverRow]?._validation || null;
+                },
+
+                toggleReviewPopover(buttonEl, rowIndex) {
+                    if (this.reviewPopoverRow === rowIndex) {
+                        this.closeReviewPopover();
+                        return;
+                    }
+                    const rect = buttonEl.getBoundingClientRect();
+                    const popoverWidth = Math.min(300, window.innerWidth - 24);
+                    const left = Math.max(12, Math.min(rect.right - popoverWidth, window.innerWidth - popoverWidth - 12));
+                    const top = Math.min(rect.bottom + 6, window.innerHeight - 160);
+                    this.reviewPopoverStyle = `top:${Math.round(top)}px;left:${Math.round(left)}px;`;
+                    this.reviewPopoverRow = rowIndex;
+                },
+
+                closeReviewPopover() {
+                    this.reviewPopoverRow = null;
                 },
 
                 handleGridPaste(event, visibleRowIndex, colIndex) {
@@ -838,7 +933,7 @@
 
                     const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
                     const startRow = this.pasteRowIndex(visibleRowIndex);
-                    const keys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'catatan'];
+                    const keys = ['kode_barang', 'nama_barang', 'kategori', 'satuan', 'qty', 'harga_satuan', 'minimum_stok', 'catatan'];
 
                     while (this.pasteRows.length < startRow + lines.length) {
                         this.pasteRows.push(this.emptyPasteRow());
@@ -870,6 +965,7 @@
                     const summary = {
                         total: 0,
                         ok: 0,
+                        has_stok: 0,
                         duplicate: 0,
                         skip: 0,
                         error: 0,
@@ -895,23 +991,37 @@
                         const qtyRaw = String(row.qty ?? '').trim();
                         const numQty = qtyRaw === '' ? NaN : Number(qtyRaw);
                         const qtyValid = qtyRaw !== '' && Number.isFinite(numQty) && Number.isInteger(numQty) && numQty >= 0;
+                        const hargaRaw = String(row.harga_satuan ?? '').trim();
+                        const numHarga = hargaRaw === '' ? 0 : Number(hargaRaw);
+                        const hargaValid = hargaRaw === '' || (Number.isFinite(numHarga) && numHarga >= 0);
+                        const minStokRaw = String(row.minimum_stok ?? '').trim();
+                        const numMinStok = minStokRaw === '' ? null : Number(minStokRaw);
+                        const minStokValid = minStokRaw === '' || (Number.isFinite(numMinStok) && Number.isInteger(numMinStok) && numMinStok >= 0);
 
-                        if (!kode) issues.push('kode_barang wajib diisi');
-                        if (!nama) issues.push('nama_barang wajib diisi');
-                        if (!kategori) issues.push('kategori wajib diisi');
-                        if (!satuan) issues.push('satuan wajib diisi');
+                        if (!kode) issues.push('Kode barang belum diisi');
+                        if (!nama) issues.push('Nama barang belum diisi');
+                        if (!kategori) issues.push('Kategori belum diisi');
+                        if (!satuan) issues.push('Satuan belum diisi');
 
                         if (qtyRaw === '' || !Number.isFinite(numQty)) {
-                            issues.push('qty harus berupa angka');
+                            issues.push('Jumlah stok harus berupa angka');
                         } else if (numQty < 0) {
-                            issues.push('qty tidak boleh negatif');
+                            issues.push('Jumlah stok tidak boleh kurang dari 0');
                         } else if (!Number.isInteger(numQty)) {
-                            issues.push('qty harus berupa bilangan bulat');
+                            issues.push('Jumlah stok harus angka bulat (tanpa desimal)');
+                        }
+
+                        if (!hargaValid) {
+                            issues.push('Harga per item harus berupa angka minimal 0');
+                        }
+
+                        if (!minStokValid) {
+                            issues.push('Stok minimum harus berupa angka bulat minimal 0');
                         }
 
                         if (kode) {
                             if (seenKodes.has(kode)) {
-                                issues.push(`Duplikat di tabel: Kode '${kode}' sudah ada di baris ${seenKodes.get(kode)}`);
+                                issues.push(`Kode '${kode}' sudah ditulis di baris ${seenKodes.get(kode)}`);
                             } else {
                                 seenKodes.set(kode, rowNumber);
                             }
@@ -919,13 +1029,14 @@
 
                         if (lowerNama) {
                             if (seenNamas.has(lowerNama)) {
-                                issues.push(`Duplikat di tabel: Nama '${nama}' sudah ada di baris ${seenNamas.get(lowerNama)}`);
+                                issues.push(`Nama '${nama}' sudah ditulis di baris ${seenNamas.get(lowerNama)}`);
                             } else {
                                 seenNamas.set(lowerNama, rowNumber);
                             }
                         }
 
                         let isNewBarang = false;
+                        let hasStokAwal = false;
                         if (issues.length === 0) {
                             const byKode = this.catalogByCode.get(kode);
                             const byNama = this.catalogByName.get(lowerNama);
@@ -936,12 +1047,12 @@
                             } else if (byNama && String(byNama.kode_barang ?? '').trim().toUpperCase() !== kode) {
                                 issues.push(`Nama '${nama}' sudah digunakan dengan kode '${byNama.kode_barang}'.`);
                             } else if (existing && existing.source === 'barang') {
-                                if (existing.stok_awal_exists) {
-                                    issues.push('Stok awal untuk barang ini sudah pernah tercatat.');
-                                }
                                 const existingSatuan = String(existing.satuan ?? '').trim().toUpperCase();
                                 if (existingSatuan && existingSatuan !== satuan) {
                                     issues.push(`Satuan tidak cocok: barang existing menggunakan '${existingSatuan}'.`);
+                                }
+                                if (issues.length === 0 && existing.stok_awal_exists) {
+                                    hasStokAwal = true;
                                 }
                             } else {
                                 isNewBarang = true;
@@ -949,7 +1060,7 @@
                             }
                         }
 
-                        const status = issues.length === 0 ? 'ok' : 'error';
+                        const status = issues.length > 0 ? 'error' : (hasStokAwal ? 'has_stok' : 'ok');
                         const result = {
                             row: rowNumber,
                             kode_barang: kode,
@@ -957,6 +1068,8 @@
                             kategori: kategori,
                             satuan: satuan,
                             qty: qtyValid ? numQty : null,
+                            harga_satuan: hargaValid ? numHarga : 0,
+                            minimum_stok: minStokRaw === '' ? null : (minStokValid ? numMinStok : null),
                             catatan: String(row.catatan ?? '').trim(),
                             status,
                             is_duplicate: false,
