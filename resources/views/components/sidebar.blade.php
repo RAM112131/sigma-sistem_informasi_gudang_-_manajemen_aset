@@ -382,7 +382,7 @@
                         <path d="M4 7h16M4 17h16" />
                         <path d="m8 4-3 3 3 3m8 4 3 3-3 3" />
                     </svg>
-                    <span>Verifikasi Pengeluaran &amp; Penerimaan</span>
+                    <span>Verifikasi Pengeluaran &amp; Pengembalian</span>
                 </a>
             </div>
 
